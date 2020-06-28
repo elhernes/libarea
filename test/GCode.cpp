@@ -12,6 +12,8 @@ GCodeWriter::GCodeWriter(const char *txt_file, int format_style) {
   m_ofs = new std::ofstream(txt_file);
   m_number_format = format_style;
   *m_ofs << "G20" << std::endl;
+  m_zFeed = 1.0;
+  m_xyFeed = 3.0;
 }
 
 GCodeWriter::~GCodeWriter() { delete m_ofs; }
@@ -87,13 +89,13 @@ GCodeWriter::OnRapidXY(double x, double y) {
 
 void
 GCodeWriter::OnFeedZ(double z) {
-  (*m_ofs) << "G1Z" << num(z) << "\n";
+    (*m_ofs) << "G1Z" << num(z) << " F" << num(m_zFeed) << "\n";
 }
 
 void
 GCodeWriter::OnFeedXY(double x, double y) {
   (*m_ofs) << "G1X" << num(x);
-  (*m_ofs) << "Y" << num(y) << "\n";
+  (*m_ofs) << "Y" << num(y) << " F" << num(m_xyFeed) << "\n";
 }
 
 void

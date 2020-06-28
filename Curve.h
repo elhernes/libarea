@@ -36,11 +36,13 @@ public:
 	CVertex(const Point& p, int user_data = 0);
 };
 
+class Units;
+
 class Span
 {
 	Point NearestPointNotOnSpan(const Point& p)const;
 	double Parameter(const Point& p)const;
-	Point NearestPointToSpan(const Span& p, double &d)const;
+	Point NearestPointToSpan(const Span& p, double &d, const Units &u)const;
 
 	static const Point null_point;
 	static const CVertex null_vertex;
@@ -52,7 +54,7 @@ public:
 	Span();
 	Span(const Point& p, const CVertex& v, bool start_span = false):m_start_span(start_span), m_p(p), m_v(v){}
 	Point NearestPoint(const Point& p)const;
-	Point NearestPoint(const Span& p, double *d = NULL)const;
+	Point NearestPoint(const Span& p, const Units &u, double *d = NULL)const;
 	void GetBox(CBox2D &box);
 	double IncludedAngle()const;
 	double GetArea()const;
@@ -71,18 +73,18 @@ class CCurve
 	// a closed curve, please make sure you add an end point, the same as the start point
 
 protected:
-	void AddArcOrLines(bool check_for_arc, std::list<CVertex> &new_vertices, std::list<const CVertex*>& might_be_an_arc, CArcOrLine &arc_or_line, bool &arc_found, bool &arc_added);
-	bool CheckForArc(const CVertex& prev_vt, std::list<const CVertex*>& might_be_an_arc, CArcOrLine &arc_or_line);
+    void AddArcOrLines(bool check_for_arc, std::list<CVertex> &new_vertices, std::list<const CVertex*>& might_be_an_arc, CArcOrLine &arc_or_line, bool &arc_found, bool &arc_added, const Units &u);
+	bool CheckForArc(const CVertex& prev_vt, std::list<const CVertex*>& might_be_an_arc, CArcOrLine &arc_or_line, const Units &u);
 
 public:
 	std::list<CVertex> m_vertices;
 	void append(const CVertex& vertex);
 
-	void FitArcs();
-	void UnFitArcs();
-	Point NearestPoint(const Point& p)const;
-	Point NearestPoint(const CCurve& p, double *d = NULL)const;
-	Point NearestPoint(const Span& p, double *d = NULL)const;
+	void FitArcs(const Units &u);
+	void UnFitArcs(const Units &u);
+	Point NearestPoint(const Point& p, const Units &u)const;
+	Point NearestPoint(const CCurve& p, const Units &u, double *d = NULL)const;
+	Point NearestPoint(const Span& p, const Units &u, double *d = NULL)const;
 	void GetBox(CBox2D &box);
 	void Reverse();
 	double GetArea()const;
@@ -90,18 +92,18 @@ public:
 	bool IsClosed()const;
 	void ChangeStart(const Point &p);
 	void ChangeEnd(const Point &p);
-	bool Offset(double leftwards_value);
-	void OffsetForward(double forwards_value, bool refit_arcs = true); // for drag-knife compensation
+	bool Offset(double leftwards_value, const Units &u);
+	void OffsetForward(double forwards_value, const Units &u, bool refit_arcs = true); // for drag-knife compensation
 	void Break(const Point &p);
 	void ExtractSeparateCurves(const std::list<Point> &ordered_points, std::list<CCurve> &separate_curves)const;
 	double Perim()const;
 	Point PerimToPoint(double perim)const;
-	double PointToPerim(const Point& p)const;
+	double PointToPerim(const Point& p, const Units &u)const;
 	void GetSpans(std::list<Span> &spans)const;
 	void RemoveTinySpans();
 	void operator+=(const CCurve& p);
 	void SpanIntersections(const Span& s, std::list<Point> &pts)const;
-	void CurveIntersections(const CCurve& c, std::list<Point> &pts)const;
+	void CurveIntersections(const CCurve& c, std::list<Point> &pts, const Units &u)const;
 };
 
 void tangential_arc(const Point &p0, const Point &p1, const Point &v0, Point &c, int &dir);

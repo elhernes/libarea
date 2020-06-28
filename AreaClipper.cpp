@@ -9,7 +9,7 @@ using namespace ClipperLib;
 #define TPolygon Path
 #define TPolyPolygon Paths
 
-bool CArea::HolesLinked(){ return false; }
+bool CArea::IsBoolean(){ return false; }
 
 //static const double PI = 3.1415926535897932;
 static double Clipper4Factor = 10000.0;
@@ -31,11 +31,11 @@ static void AddPoint(const DoubleAreaPoint& p)
 	pts_for_AddVertex.push_back(p);
 }
 
-static void AddVertex(const CVertex& vertex, const CVertex* prev_vertex)
+static void AddVertex(const CVertex& vertex, const CVertex* prev_vertex, const Units &u)
 {
 	if(vertex.m_type == 0 || prev_vertex == NULL)
 	{
-		AddPoint(DoubleAreaPoint(vertex.m_p.x * CArea::m_units, vertex.m_p.y * CArea::m_units));
+		AddPoint(DoubleAreaPoint(vertex.m_p.x * u.m_scale, vertex.m_p.y * u.m_scale));
 	}
 	else
 	{
@@ -46,13 +46,13 @@ static void AddVertex(const CVertex& vertex, const CVertex* prev_vertex)
 		int i;
 		double ang1,ang2,phit;
 
-		dx = (prev_vertex->m_p.x - vertex.m_c.x) * CArea::m_units;
-		dy = (prev_vertex->m_p.y - vertex.m_c.y) * CArea::m_units;
+		dx = (prev_vertex->m_p.x - vertex.m_c.x) * u.m_scale;
+		dy = (prev_vertex->m_p.y - vertex.m_c.y) * u.m_scale;
 
 		ang1=atan2(dy,dx);
 		if (ang1<0) ang1+=2.0*PI;
-		dx = (vertex.m_p.x - vertex.m_c.x) * CArea::m_units;
-		dy = (vertex.m_p.y - vertex.m_c.y) * CArea::m_units;
+		dx = (vertex.m_p.x - vertex.m_c.x) * u.m_scale;
+		dy = (vertex.m_p.y - vertex.m_c.y) * u.m_scale;
 		ang2=atan2(dy,dx);
 		if (ang2<0) ang2+=2.0*PI;
 
@@ -73,7 +73,7 @@ static void AddVertex(const CVertex& vertex, const CVertex* prev_vertex)
 
 		//what is the delta phi to get an accurancy of aber
 		double radius = sqrt(dx*dx + dy*dy);
-		dphi=2*acos((radius-CArea::m_accuracy)/radius);
+		dphi=2*acos((radius-u.m_tolerance)/radius);
 
 		//set the number of segments
 		if (phit > 0)
@@ -88,17 +88,17 @@ static void AddVertex(const CVertex& vertex, const CVertex* prev_vertex)
 
 		dphi=phit/(Segments);
 
-		double px = prev_vertex->m_p.x * CArea::m_units;
-		double py = prev_vertex->m_p.y * CArea::m_units;
+		double px = prev_vertex->m_p.x * u.m_scale;
+		double py = prev_vertex->m_p.y * u.m_scale;
 
 		for (i=1; i<=Segments; i++)
 		{
-			dx = px - vertex.m_c.x * CArea::m_units;
-			dy = py - vertex.m_c.y * CArea::m_units;
+			dx = px - vertex.m_c.x * u.m_scale;
+			dy = py - vertex.m_c.y * u.m_scale;
 			phi=atan2(dy,dx);
 
-			double nx = vertex.m_c.x * CArea::m_units + radius * cos(phi-dphi);
-			double ny = vertex.m_c.y * CArea::m_units + radius * sin(phi-dphi);
+			double nx = vertex.m_c.x * u.m_scale + radius * cos(phi-dphi);
+			double ny = vertex.m_c.y * u.m_scale + radius * sin(phi-dphi);
 
 			AddPoint(DoubleAreaPoint(nx, ny));
 
@@ -127,13 +127,8 @@ static void MakeLoop(const DoubleAreaPoint &pt0, const DoubleAreaPoint &pt1, con
 	CVertex v1(arc_dir, p1 + right1 * radius, p1);
 	CVertex v2(0, p2 + right1 * radius, Point(0, 0));
 
-	double save_units = CArea::m_units;
-	CArea::m_units = 1.0;
-
-	AddVertex(v1, &v0);
-	AddVertex(v2, &v1);
-
-	CArea::m_units = save_units;
+	AddVertex(v1, &v0, Units(1.0, 0.01));
+	AddVertex(v2, &v1, Units(1.0, 0.01));
 }
 
 static void OffsetWithLoops(const TPolyPolygon &pp, TPolyPolygon &pp_new, double inwards_value)
@@ -236,16 +231,13 @@ static void MakeObround(const Point &pt0, const CVertex &vt1, double radius)
 	CVertex v3(-vt1.m_type, pt0 + right0 * -radius, vt1.m_c);
 	CVertex v4(1, pt0 + right0 * radius, pt0);
 
-	double save_units = CArea::m_units;
-	CArea::m_units = 1.0;
+        Units u(1.0, 0.01);
 
-	AddVertex(v0, NULL);
-	AddVertex(v1, &v0);
-	AddVertex(v2, &v1);
-	AddVertex(v3, &v2);
-	AddVertex(v4, &v3);
-
-	CArea::m_units = save_units;
+	AddVertex(v0, NULL, u);
+	AddVertex(v1, &v0, u);
+	AddVertex(v2, &v1, u);
+	AddVertex(v3, &v2, u);
+	AddVertex(v4, &v3, u);
 }
 
 static void OffsetSpansWithObrounds(const CArea& area, TPolyPolygon &pp_new, double radius)
@@ -296,7 +288,7 @@ static void OffsetSpansWithObrounds(const CArea& area, TPolyPolygon &pp_new, dou
 	}
 }
 
-static void MakePolyPoly( const CArea& area, TPolyPolygon &pp, bool reverse = true ){
+static void MakePolyPoly( const CArea& area, TPolyPolygon &pp, const Units &u, bool reverse = true ){
 	pp.clear();
 
 	for(std::list<CCurve>::const_iterator It = area.m_curves.begin(); It != area.m_curves.end(); It++)
@@ -307,7 +299,7 @@ static void MakePolyPoly( const CArea& area, TPolyPolygon &pp, bool reverse = tr
 		for(std::list<CVertex>::const_iterator It2 = curve.m_vertices.begin(); It2 != curve.m_vertices.end(); It2++)
 		{
 			const CVertex& vertex = *It2;
-			if(prev_vertex)AddVertex(vertex, prev_vertex);
+			if(prev_vertex)AddVertex(vertex, prev_vertex, u);
 			prev_vertex = &vertex;
 		}
 
@@ -334,14 +326,14 @@ static void MakePolyPoly( const CArea& area, TPolyPolygon &pp, bool reverse = tr
 	}
 }
 
-static void MakePoly(const CCurve& curve, TPolygon &p)
+static void MakePoly(const CCurve& curve, TPolygon &p, const Units &u)
 {
 	pts_for_AddVertex.clear();
 	const CVertex* prev_vertex = NULL;
 	for (std::list<CVertex>::const_iterator It2 = curve.m_vertices.begin(); It2 != curve.m_vertices.end(); It2++)
 	{
 		const CVertex& vertex = *It2;
-		if (prev_vertex)AddVertex(vertex, prev_vertex);
+		if (prev_vertex)AddVertex(vertex, prev_vertex, u);
 		prev_vertex = &vertex;
 	}
 
@@ -355,13 +347,13 @@ static void MakePoly(const CCurve& curve, TPolygon &p)
 	}
 }
 
-static void SetFromResult( CCurve& curve, const TPolygon& p, bool reverse = true )
+static void SetFromResult( CCurve& curve, const TPolygon& p, const Units &u, bool reverse = true )
 {
 	for(unsigned int j = 0; j < p.size(); j++)
 	{
 		const IntPoint &pt = p[j];
 		DoubleAreaPoint dp(pt);
-		CVertex vertex(0, Point(dp.X / CArea::m_units, dp.Y / CArea::m_units), Point(0.0, 0.0));
+		CVertex vertex(0, Point(dp.X / u.m_scale, dp.Y / u.m_scale), Point(0.0, 0.0));
 		if(reverse)curve.m_vertices.push_front(vertex);
 		else curve.m_vertices.push_back(vertex);
 	}
@@ -369,10 +361,10 @@ static void SetFromResult( CCurve& curve, const TPolygon& p, bool reverse = true
 	if(reverse)curve.m_vertices.push_front(curve.m_vertices.back());
 	else curve.m_vertices.push_back(curve.m_vertices.front());
 
-	if(CArea::m_fit_arcs)curve.FitArcs();
+	if(CArea::m_fit_arcs)curve.FitArcs(u);
 }
 
-static void SetFromResult( CArea& area, const TPolyPolygon& pp, bool reverse = true )
+static void SetFromResult( CArea& area, const TPolyPolygon& pp, const Units &u, bool reverse = true )
 {
 	// delete existing geometry
 	area.m_curves.clear();
@@ -383,7 +375,7 @@ static void SetFromResult( CArea& area, const TPolyPolygon& pp, bool reverse = t
 
 		area.m_curves.push_back(CCurve());
 		CCurve &curve = area.m_curves.back();
-		SetFromResult(curve, p, reverse);
+		SetFromResult(curve, p, u, reverse);
     }
 }
 
@@ -391,43 +383,43 @@ void CArea::Subtract(const CArea& a2)
 {
 	Clipper c;
 	TPolyPolygon pp1, pp2;
-	MakePolyPoly(*this, pp1);
-	MakePolyPoly(a2, pp2);
+	MakePolyPoly(*this, pp1, m_units);
+	MakePolyPoly(a2, pp2, m_units);
 	c.AddPaths(pp1, ptSubject, true);
 	c.AddPaths(pp2, ptClip, true);
 	TPolyPolygon solution;
 	c.Execute(ctDifference, solution);
-	SetFromResult(*this, solution);
+	SetFromResult(*this, solution, m_units);
 }
 
 void CArea::Intersect(const CArea& a2)
 {
 	Clipper c;
 	TPolyPolygon pp1, pp2;
-	MakePolyPoly(*this, pp1);
-	MakePolyPoly(a2, pp2);
+	MakePolyPoly(*this, pp1, m_units);
+	MakePolyPoly(a2, pp2, m_units);
 	c.AddPaths(pp1, ptSubject, true);
 	c.AddPaths(pp2, ptClip, true);
 	TPolyPolygon solution;
 	c.Execute(ctIntersection, solution);
-	SetFromResult(*this, solution);
+	SetFromResult(*this, solution, m_units);
 }
 
 void CArea::Union(const CArea& a2)
 {
 	Clipper c;
 	TPolyPolygon pp1, pp2;
-	MakePolyPoly(*this, pp1);
-	MakePolyPoly(a2, pp2);
+	MakePolyPoly(*this, pp1, m_units);
+	MakePolyPoly(a2, pp2, m_units);
 	c.AddPaths(pp1, ptSubject, true);
 	c.AddPaths(pp2, ptClip, true);
 	TPolyPolygon solution;
 	c.Execute(ctUnion, solution);
-	SetFromResult(*this, solution);
+	SetFromResult(*this, solution, m_units);
 }
 
 // static
-CArea CArea::UniteCurves(std::list<CCurve> &curves)
+CArea CArea::UniteCurves(std::list<CCurve> &curves, const Units &u)
 {
 	Clipper c;
 
@@ -437,15 +429,15 @@ CArea CArea::UniteCurves(std::list<CCurve> &curves)
 	{
 		CCurve &curve = *It;
 		TPolygon p;
-		MakePoly(curve, p);
+		MakePoly(curve, p, u);
 		pp.push_back(p);
 	}
 
 	c.AddPaths(pp, ptSubject, true);
 	TPolyPolygon solution;
 	c.Execute(ctUnion, solution, pftNonZero, pftNonZero);
-	CArea area;
-	SetFromResult(area, solution);
+	CArea area(u);
+	SetFromResult(area, solution, u);
 	return area;
 }
 
@@ -453,40 +445,40 @@ void CArea::Xor(const CArea& a2)
 {
 	Clipper c;
 	TPolyPolygon pp1, pp2;
-	MakePolyPoly(*this, pp1);
-	MakePolyPoly(a2, pp2);
+	MakePolyPoly(*this, pp1, m_units);
+	MakePolyPoly(a2, pp2, m_units);
 	c.AddPaths(pp1, ptSubject, true);
 	c.AddPaths(pp2, ptClip, true);
 	TPolyPolygon solution;
 	c.Execute(ctXor, solution);
-	SetFromResult(*this, solution);
+	SetFromResult(*this, solution, m_units);
 }
 
 void CArea::Offset(double inwards_value)
 {
 	TPolyPolygon pp, pp2;
-	MakePolyPoly(*this, pp, false);
-	OffsetWithLoops(pp, pp2, inwards_value * m_units);
-	SetFromResult(*this, pp2, false);
+	MakePolyPoly(*this, pp, m_units, false);
+	OffsetWithLoops(pp, pp2, inwards_value * m_units.m_scale);
+	SetFromResult(*this, pp2, m_units, false);
 	this->Reorder();
 }
 
 void CArea::Thicken(double value)
 {
 	TPolyPolygon pp;
-	OffsetSpansWithObrounds(*this, pp, value * m_units);
-	SetFromResult(*this, pp, false);
+	OffsetSpansWithObrounds(*this, pp, value * m_units.m_scale);
+	SetFromResult(*this, pp, m_units, false);
 	this->Reorder();
 }
 
-void UnFitArcs(CCurve &curve)
+void UnFitArcs(CCurve &curve, const Units &u)
 {
 	pts_for_AddVertex.clear();
 	const CVertex* prev_vertex = NULL;
 	for(std::list<CVertex>::const_iterator It2 = curve.m_vertices.begin(); It2 != curve.m_vertices.end(); It2++)
 	{
 		const CVertex& vertex = *It2;
-		AddVertex(vertex, prev_vertex);
+		AddVertex(vertex, prev_vertex, u);
 		prev_vertex = &vertex;
 	}
 
@@ -495,7 +487,7 @@ void UnFitArcs(CCurve &curve)
 	for(std::list<DoubleAreaPoint>::iterator It = pts_for_AddVertex.begin(); It != pts_for_AddVertex.end(); It++)
 	{
 		DoubleAreaPoint &pt = *It;
-		CVertex vertex(0, Point(pt.X / CArea::m_units, pt.Y / CArea::m_units), Point(0.0, 0.0));
+		CVertex vertex(0, Point(pt.X / u.m_scale, pt.Y / u.m_scale), Point(0.0, 0.0));
 		curve.m_vertices.push_back(vertex);
 	}
 }

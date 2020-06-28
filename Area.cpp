@@ -8,8 +8,8 @@
 
 #include <map>
 
-double CArea::m_accuracy = 0.01;
-double CArea::m_units = 1.0;
+//double CArea::m_accuracy = 0.01;
+//double CArea::m_units = 1.0;
 bool CArea::m_fit_arcs = true;
 double CArea::m_single_area_processing_length = 0.0;
 double CArea::m_processing_done = 0.0;
@@ -20,6 +20,13 @@ bool CArea::m_set_processing_length_in_split = false;
 double CArea::m_after_MakeOffsets_length = 0.0;
 //static const double PI = 3.1415926535897932;
 
+CArea::CArea(const Units &u) : m_units(u) {
+    
+}
+
+CArea::CArea(const CArea &rhs) : m_curves(rhs.m_curves), m_units(rhs.m_units) {
+}
+
 void CArea::append(const CCurve& curve)
 {
 	m_curves.push_back(curve);
@@ -29,7 +36,7 @@ void CArea::FitArcs(){
 	for(std::list<CCurve>::iterator It = m_curves.begin(); It != m_curves.end(); It++)
 	{
 		CCurve& curve = *It;
-		curve.FitArcs();
+		curve.FitArcs(m_units);
 	}
 }
 
@@ -40,7 +47,7 @@ Point CArea::NearestPoint(const Point& p)const
 	for(std::list<CCurve>::const_iterator It = m_curves.begin(); It != m_curves.end(); It++)
 	{
 		const CCurve& curve = *It;
-		Point near_point = curve.NearestPoint(p);
+		Point near_point = curve.NearestPoint(p, m_units);
 		double dist = near_point.dist(p);
 		if(It == m_curves.begin() || dist < best_dist)
 		{
@@ -73,14 +80,14 @@ void CArea::Reorder()
 	for(std::list<CCurve>::iterator It = m_curves.begin(); It != m_curves.end(); It++)
 	{
 		CCurve& curve = *It;
-		ao.Insert(&curve);
+		ao.Insert(&curve, m_units);
 		if(m_set_processing_length_in_split)
 		{
 			CArea::m_processing_done += (m_split_processing_length / m_curves.size());
 		}
 	}
 
-	*this = ao.ResultArea();
+	*this = ao.ResultArea(m_units);
 }
 
 class ZigZag
@@ -403,7 +410,7 @@ static void zigzag(const CArea &input_a)
 		return;
 	}
     
-    one_over_units = 1 / CArea::m_units;
+    one_over_units = 1 / input_a.m_units.m_scale;
     
 	CArea a(input_a);
     rotate_area(a);
@@ -438,7 +445,7 @@ static void zigzag(const CArea &input_a)
 		c.m_vertices.push_back(CVertex(0, p2, null_point, 1));
 		c.m_vertices.push_back(CVertex(0, p3, null_point, 0));
 		c.m_vertices.push_back(CVertex(0, p0, null_point, 1));
-		CArea a2;
+		CArea a2(input_a.m_units);
 		a2.m_curves.push_back(c);
 		a2.Intersect(a);
 		make_zig(a2, y0, y);
@@ -455,15 +462,12 @@ void CArea::SplitAndMakePocketToolpath(std::list<CCurve> &curve_list, const CAre
 {
 	CArea::m_processing_done = 0.0;
 
-	double save_units = CArea::m_units;
-	CArea::m_units = 1.0;
 	std::list<CArea> areas;
 	m_split_processing_length = 50.0; // jump to 50 percent after split
 	m_set_processing_length_in_split = true;
 	Split(areas);
 	m_set_processing_length_in_split = false;
 	CArea::m_processing_done = m_split_processing_length;
-	CArea::m_units = save_units;
 
 	if(areas.size() == 0)return;
 
@@ -529,12 +533,12 @@ void CArea::MakePocketToolpath(std::list<CCurve> &curve_list, const CAreaPocketP
 
 void CArea::Split(std::list<CArea> &m_areas)const
 {
-	if(HolesLinked())
+	if(IsBoolean())
 	{
 		for(std::list<CCurve>::const_iterator It = m_curves.begin(); It != m_curves.end(); It++)
 		{
 			const CCurve& curve = *It;
-			m_areas.push_back(CArea());
+			m_areas.push_back(CArea(m_units));
 			m_areas.back().m_curves.push_back(curve);
 		}
 	}
@@ -555,7 +559,7 @@ void CArea::Split(std::list<CArea> &m_areas)const
 			}
 			else
 			{
-				m_areas.push_back(CArea());
+				m_areas.push_back(CArea(m_units));
 				m_areas.back().m_curves.push_back(curve);
 			}
 		}
@@ -578,9 +582,9 @@ double CArea::GetArea(bool always_add)const
 
 eOverlapType GetOverlapType(const CCurve& c1, const CCurve& c2)
 {
-	CArea a1;
+    CArea a1(Units(1.0, 0.001));
 	a1.m_curves.push_back(c1);
-	CArea a2;
+	CArea a2(Units(1.0, 0.001));
 	a2.m_curves.push_back(c2);
 
 	return GetOverlapType(a1, a2);
@@ -612,17 +616,18 @@ eOverlapType GetOverlapType(const CArea& a1, const CArea& a2)
 
 	return eCrossing;
 }
-
+#if 0
 bool IsInside(const Point& p, const CCurve& c)
 {
 	CArea a;
 	a.m_curves.push_back(c);
 	return IsInside(p, a);
 }
+#endif
 
 bool IsInside(const Point& p, const CArea& a)
 {
-	CArea a2;
+    CArea a2(a.m_units);
 	CCurve c;
 	c.m_vertices.push_back(CVertex(Point(p.x - 0.01, p.y - 0.01)));
 	c.m_vertices.push_back(CVertex(Point(p.x + 0.01, p.y - 0.01)));
@@ -698,9 +703,8 @@ public:
 	CArea m_area;
 	CCurve m_curve;
 
-	ThickLine(const CCurve& curve)
+    ThickLine(const CCurve& curve, const Units &u) : m_curve(curve), m_area(u)
 	{
-		m_curve = curve;
 		m_area.append(curve);
 		m_area.Thicken(0.001);
 	}

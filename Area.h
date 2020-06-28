@@ -36,12 +36,22 @@ struct CAreaPocketParams
 	}
 };
 
+class Units {
+public:
+    Units(double s, double t) : m_scale(s), m_tolerance(t) {}
+    double m_scale;
+    double m_tolerance;
+};
+
 class CArea
 {
 public:
-	std::list<CCurve> m_curves;
-	static double m_accuracy;
-	static double m_units; // 1.0 for mm, 25.4 for inches. All points are multiplied by this before going to the engine
+    CArea(const Units &u);
+    CArea(const CArea &rhs);
+    std::list<CCurve> m_curves;
+    Units m_units;
+//	static double m_accuracy;
+//	static double m_units; // 1.0 for mm, 25.4 for inches. All points are multiplied by this before going to the engine
 	static bool m_fit_arcs;
 	static double m_processing_done; // 0.0 to 100.0, set inside MakeOnePocketCurve
 	static double m_single_area_processing_length;
@@ -55,7 +65,7 @@ public:
 	void Subtract(const CArea& a2);
 	void Intersect(const CArea& a2);
 	void Union(const CArea& a2);
-	static CArea UniteCurves(std::list<CCurve> &curves);
+	static CArea UniteCurves(std::list<CCurve> &curves, const Units &u);
 	void Xor(const CArea& a2);
 	void Offset(double inwards_value);
 	void Thicken(double value);
@@ -67,7 +77,7 @@ public:
 	void MakePocketToolpath(std::list<CCurve> &toolpath, const CAreaPocketParams &params)const;
 	void SplitAndMakePocketToolpath(std::list<CCurve> &toolpath, const CAreaPocketParams &params)const;
 	void MakeOnePocketCurve(std::list<CCurve> &curve_list, const CAreaPocketParams &params)const;
-	static bool HolesLinked();
+	static bool IsBoolean();
 	void Split(std::list<CArea> &m_areas)const;
 	double GetArea(bool always_add = false)const;
 	void SpanIntersections(const Span& span, std::list<Point> &pts)const; 

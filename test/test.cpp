@@ -40,7 +40,7 @@ makeRect(CCurve &curve, const Point &p0, double xl, double yl) {
 }
 
 static void
-cut_area(Writer &out, std::list<CCurve> &toolpath, double depth, double zStart,
+cut_path(Writer &out, std::list<CCurve> &toolpath, double depth, double zStart,
          double zSafe) {
   for (std::list<CCurve>::const_iterator i = toolpath.begin();
        i != toolpath.end(); i++) {
@@ -81,9 +81,9 @@ cut_area(Writer &out, std::list<CCurve> &toolpath, double depth, double zStart,
 
 void
 circular_pocket(std::list<CCurve> &toolPath, double tool_diameter, double cx,
-                double cy, double rOuter, double rInner, double xyPct) {
+                double cy, double rOuter, double rInner, double xyPct, const Units &u) {
   CCurve outerCircle, innerCircle;
-  CArea innerArea, outerArea;
+  CArea innerArea(u), outerArea(u);
 
   makeCircle(outerCircle, Point(cx, cy), rOuter);
   outerArea.append(outerCircle);
@@ -95,37 +95,38 @@ circular_pocket(std::list<CCurve> &toolPath, double tool_diameter, double cx,
 
   outerArea.Xor(innerArea);
 
-  // SpiralPocketMode,
-  // ZigZagPocketMode,
-  // SingleOffsetPocketMode,
-  // ZigZagThenSingleOffsetPocketMode,
+  PocketMode pm = SpiralPocketMode;
+//  PocketMode pm = ZigZagPocketMode;
+//  PocketMode pm = SingleOffsetPocketMode;
+//  PocketMode pm = ZigZagThenSingleOffsetPocketMode;
+  
   CAreaPocketParams params(tool_diameter / 2,
                            0,                     // double Extra_offset
                            tool_diameter * xyPct, // double Stepover,
                            false,                 // bool From_center,
-                           SpiralPocketMode, // PocketMode Mode,
+                           pm, // PocketMode Mode,
                            0); // double Zig_angle)
   outerArea.SplitAndMakePocketToolpath(toolPath, params);
 }
 
 void
 rect_pocket(std::list<CCurve> &toolPath, double tool_diameter, double x0,
-            double y0, double xlen, double ylen, double xyPct) {
+            double y0, double xlen, double ylen, double xyPct, const Units &u) {
   CCurve rect_c;
   makeRect(rect_c, Point(x0, y0), xlen, ylen);
-  CArea rect_a;
+  CArea rect_a(u);
   rect_a.append(rect_c);
 
-  // SpiralPocketMode,
-  // ZigZagPocketMode,
-  // SingleOffsetPocketMode,
-  // ZigZagThenSingleOffsetPocketMode,
-
+  PocketMode pm = SpiralPocketMode;
+//  PocketMode pm = ZigZagPocketMode;
+//  PocketMode pm = SingleOffsetPocketMode;
+//  PocketMode pm = ZigZagThenSingleOffsetPocketMode;
+  
   CAreaPocketParams params(tool_diameter / 2,
                            0,                     // double Extra_offset
                            tool_diameter * xyPct, // double Stepover,
                            false,                 // bool From_center,
-                           ZigZagThenSingleOffsetPocketMode,      // PocketMode Mode,
+                           pm,      // PocketMode Mode,
                            22.5);                    // double Zig_angle)
   rect_a.MakePocketToolpath(toolPath, params);
 }
@@ -140,20 +141,27 @@ main(int ac, char **av) {
   p.Transform(m);
   printf("p(x=%f, y=%f)\n", p.x, p.y);
 
+  Units u(25.4, 0.001);
   std::list<CCurve> toolPath;
-  if (1) {
-    circular_pocket(toolPath, 0.125/*tool diameter*/,
-                    1.5, 1.5, /* cx,cy */
-                    1.5, /* outer radius */
-                    0.75, /* inner radius */
-                    0.45); /* xy overlap */
-  } else {
-    rect_pocket(toolPath, 0.125, 0.5, 0.5, 1.50, 3.50,
-                0.45); // 0., 0.125, 0.45, 0.060);
-  }
 
   GCodeWriter gcode("pocket.nc", 0);
-  cut_area(gcode, toolPath, -0.125, 0., 0.125);
+
+  circular_pocket(toolPath, 0.125/*tool diameter*/,
+                  1.5, 1.5, /* cx,cy */
+                  1.5, /* outer radius */
+                  0.75, /* inner radius */
+                  0.45, u); /* xy overlap */
+
+  cut_path(gcode, toolPath, -0.125, 0., 0.125);
+
+  toolPath.clear();
+  rect_pocket(toolPath, 0.125, /*tool diameter*/
+              1.5, 1.5, // bottom left x, y
+              1.50, 3.50, // width, height
+              0.45, u);  // xy overlap,  units
+
+  cut_path(gcode, toolPath, -0.250, 0., 0.125);
+
   return 0;
 }
 

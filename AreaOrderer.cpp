@@ -16,10 +16,16 @@ CInnerCurves::CInnerCurves(CInnerCurves* pOuter, const CCurve* curve)
 
 CInnerCurves::~CInnerCurves()
 {
-	delete m_unite_area;
+    if(m_unite_area) delete m_unite_area;
 }
 
-void CInnerCurves::Insert(const CCurve* pcurve)
+const Units &
+CInnerCurves::GetUnits()
+{
+    return m_unite_area->m_units;
+}
+
+void CInnerCurves::Insert(const CCurve* pcurve, const Units &u)
 {
 	std::list<CInnerCurves*> outside_of_these;
 	std::list<CInnerCurves*> crossing_these;
@@ -37,7 +43,7 @@ void CInnerCurves::Insert(const CCurve* pcurve)
 
 		case eInside:
 			// insert in this inner curve
-			c->Insert(pcurve);
+                    c->Insert(pcurve, u);
 			return;
 
 		case eSiblings:
@@ -66,7 +72,7 @@ void CInnerCurves::Insert(const CCurve* pcurve)
 	{
 		// unite these
 		CInnerCurves* c = *It;
-		new_item->Unite(c);
+		new_item->Unite(c, u);
 		this->m_inner_curves.erase(c);
 	}
 }
@@ -98,15 +104,15 @@ void CInnerCurves::GetArea(CArea &area, bool outside, bool use_curve)const
 	}
 }
 
-void CInnerCurves::Unite(const CInnerCurves* c)
+void CInnerCurves::Unite(const CInnerCurves* c, const Units &u)
 {
 	// unite all the curves in c, with this one
-	CArea* new_area = new CArea();
+	CArea* new_area = new CArea(u);
 	new_area->m_curves.push_back(*m_curve);
 	delete m_unite_area;
 	m_unite_area = new_area;
 
-	CArea a2;
+	CArea a2(u);
 	c->GetArea(a2);
 
 	m_unite_area->Union(a2);
@@ -119,7 +125,7 @@ void CInnerCurves::Unite(const CInnerCurves* c)
 		else
 		{
 			if(curve.IsClockwise())curve.Reverse();
-			Insert(&curve);
+			Insert(&curve, u);
 		}
 	}
 }
@@ -129,25 +135,23 @@ CAreaOrderer::CAreaOrderer()
 	m_top_level = new CInnerCurves(NULL, NULL);
 }
 
-void CAreaOrderer::Insert(CCurve* pcurve)
+void CAreaOrderer::Insert(CCurve* pcurve, const Units &u)
 {
 	CInnerCurves::area_orderer = this;
 
 	// make them all anti-clockwise as they come in
 	if(pcurve->IsClockwise())pcurve->Reverse();
 
-	m_top_level->Insert(pcurve);
+	m_top_level->Insert(pcurve, u);
 }
 
-CArea CAreaOrderer::ResultArea()const
+CArea CAreaOrderer::ResultArea(const Units &u)const
 {
-	CArea a;
+    CArea a(u);
 
-	if(m_top_level)
-	{
-		m_top_level->GetArea(a);
-	}
-
-	return a;
+    if(m_top_level) {
+        m_top_level->GetArea(a);
+    }
+    return a;
 }
 
