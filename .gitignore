@@ -1,2 +1,4 @@
 **/obj.*/**
 obj.*/**
+/node.js/node_modules/
+/node.js/build/

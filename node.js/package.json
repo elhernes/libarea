@@ -1,0 +1,9 @@
+{
+    "scripts": {
+        "install": "cmake-js compile"
+    },
+    "dependencies": {
+        "nan": "^2.14.2",
+        "node-addon-api": "^3.1.0"
+    }
+}

@@ -693,13 +693,13 @@ return;
 	}
 #else
 	void Kurve::AddIndex(int vertexNumber, const SpanDataObject* data) {
-		if(this == NULL || vertexNumber > m_nVertices - 1) FAILURE(L"Kurve::AddIndex - vertexNumber out of range");
+		if(vertexNumber > m_nVertices - 1) FAILURE(L"Kurve::AddIndex - vertexNumber out of range");
 		SpanVertex* p = (SpanVertex*) m_spans[vertexNumber / SPANSTORAGE];
 		p->Add(vertexNumber % SPANSTORAGE, data);
 	}
 
 	const SpanDataObject* Kurve::GetIndex(int vertexNumber)const {
-		if(this == NULL || vertexNumber > m_nVertices - 1) FAILURE(L"Kurve::GetIndex - vertexNumber out of range");
+		if(vertexNumber > m_nVertices - 1) FAILURE(L"Kurve::GetIndex - vertexNumber out of range");
 		SpanVertex* p = (SpanVertex*) m_spans[vertexNumber / SPANSTORAGE];
 		return p->GetIndex(vertexNumber % SPANSTORAGE);
 	}

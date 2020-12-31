@@ -39,6 +39,15 @@ makeRect(CCurve &curve, const Point &p0, double xl, double yl) {
   return true;
 }
 
+static bool
+makeTriangle(CCurve &curve, const Point &p0, const Point &p1, const Point &p2) {
+  curve.append(p0);
+  curve.append(p1);
+  curve.append(p2);
+  curve.append(p0);
+  return true;
+}
+
 static void
 cut_path(Writer &out, std::list<CCurve> &toolpath, double depth, double zStart,
          double zSafe) {
@@ -87,11 +96,11 @@ circular_pocket(std::list<CCurve> &toolPath, double tool_diameter, double cx,
 
   makeCircle(outerCircle, Point(cx, cy), rOuter);
   outerArea.append(outerCircle);
-//  outerCircle.FitArcs(Units(Units::Inches, 0.001));
+  outerCircle.FitArcs(u);
 
   makeCircle(innerCircle, Point(cx, cy), rInner);
   innerArea.append(innerCircle);
-//  innerCircle.FitArcs(Units(Units::Inches, 0.001));
+  innerCircle.FitArcs(u);
 
   outerArea.Xor(innerArea);
 
@@ -131,6 +140,34 @@ rect_pocket(std::list<CCurve> &toolPath, double tool_diameter, double x0,
   rect_a.MakePocketToolpath(toolPath, params);
 }
 
+void
+triangle_pocket(std::list<CCurve> &toolPath, double tool_diameter,
+                double x0, double y0,
+                double x1, double y1,
+                double x2, double y2,
+                double xyPct, const Units &u) {
+  
+  CCurve tri_c;
+  makeTriangle(tri_c, Point(x0, y0), Point(x1,y1), Point(x2,y2));
+
+  CArea tri_a(u);
+  tri_a.append(tri_c);
+
+//  PocketMode pm = SpiralPocketMode;
+//  PocketMode pm = ZigZagPocketMode;
+//  PocketMode pm = SingleOffsetPocketMode;
+  PocketMode pm = ZigZagThenSingleOffsetPocketMode;
+  
+  CAreaPocketParams params(tool_diameter / 2,
+                           0,                     // double Extra_offset
+                           tool_diameter * xyPct, // double Stepover,
+                           false,                 // bool From_center,
+                           pm,      // PocketMode Mode,
+                           0);                    // double Zig_angle)
+
+  tri_a.MakePocketToolpath(toolPath, params);
+}
+
 int
 main(int ac, char **av) {
   Point p(0, 0);
@@ -145,22 +182,35 @@ main(int ac, char **av) {
   std::list<CCurve> toolPath;
 
   GCodeWriter gcode("pocket.nc", 0);
+  if (0) {
+    circular_pocket(toolPath, 0.125/*tool diameter*/,
+                    1.5, 1.5, /* cx,cy */
+                    1.5, /* outer radius */
+                    0.75, /* inner radius */
+                    0.45, u); /* xy overlap */
 
-  circular_pocket(toolPath, 0.125/*tool diameter*/,
-                  1.5, 1.5, /* cx,cy */
-                  1.5, /* outer radius */
-                  0.75, /* inner radius */
-                  0.45, u); /* xy overlap */
+    cut_path(gcode, toolPath, -0.125, 0., 0.125);
+  }
 
-  cut_path(gcode, toolPath, -0.125, 0., 0.125);
+  if (0) {
+    toolPath.clear();
+    rect_pocket(toolPath, 0.125, /*tool diameter*/
+                1.5, 1.5, // bottom left x, y
+                1.50, 3.50, // width, height
+                0.45, u);  // xy overlap,  units
 
-  toolPath.clear();
-  rect_pocket(toolPath, 0.125, /*tool diameter*/
-              1.5, 1.5, // bottom left x, y
-              1.50, 3.50, // width, height
-              0.45, u);  // xy overlap,  units
-
-  cut_path(gcode, toolPath, -0.250, 0., 0.125);
+    cut_path(gcode, toolPath, -0.250, 0., 0.125);
+  }
+  
+  if (1) {
+    toolPath.clear();
+    triangle_pocket(toolPath, 0.250, /*tool diameter*/
+                    2.726, -0.697, // p0
+                    1.854, 0.175, // p1
+                    1.005, -0.675, // p2
+                    0.45, u);  // xy overlap,  units
+    cut_path(gcode, toolPath, -0.500, -0.500, -1.0);
+  }
 
   return 0;
 }

@@ -18,6 +18,6 @@
                            ((d (dir-locals-find-file ".")))
                          (if (stringp d) d (car d)))) ))
 	 (eval . (message "project-dir: '%s'" project-dir))
-         (eval . (set (make-local-variable 'compile-command) (concat "cd " project-dir "; make.qmk && (cd test; make.qmk) && ./test/obj.Darwin/test")))
+         (eval . (set (make-local-variable 'compile-command) (concat "cd " project-dir "; SDKROOT=macosx11.1 make.qmk && (cd test; SDKROOT=macosx11.1 make.qmk) && ./test/obj.Darwin/test")))
 	 )))
 ;;; end of .dir-locals.el
