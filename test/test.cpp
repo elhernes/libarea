@@ -150,6 +150,12 @@ triangle_pocket(std::list<CCurve> &toolPath, double tool_diameter,
   CCurve tri_c;
   makeTriangle(tri_c, Point(x0, y0), Point(x1,y1), Point(x2,y2));
 
+  unsigned i=0;
+  for(const auto v : tri_c.m_vertices) {
+      fprintf(stderr, "point[%d] (%f %f)\n", i, v.m_p.x, v.m_p.y);
+      i++;
+  }
+
   CArea tri_a(u);
   tri_a.append(tri_c);
 
@@ -157,6 +163,8 @@ triangle_pocket(std::list<CCurve> &toolPath, double tool_diameter,
 //  PocketMode pm = ZigZagPocketMode;
 //  PocketMode pm = SingleOffsetPocketMode;
   PocketMode pm = ZigZagThenSingleOffsetPocketMode;
+
+  fprintf(stderr, "pocket mode is %d\n", pm);
   
   CAreaPocketParams params(tool_diameter / 2,
                            0,                     // double Extra_offset
@@ -204,11 +212,22 @@ main(int ac, char **av) {
   
   if (1) {
     toolPath.clear();
-    triangle_pocket(toolPath, 0.250, /*tool diameter*/
-                    2.726, -0.697, // p0
+    triangle_pocket(toolPath, 10./25.4, /*tool diameter*/
+                    2.693, -0.663, // p2
                     1.854, 0.175, // p1
-                    1.005, -0.675, // p2
+                    1.016, -0.663, // p0
                     0.45, u);  // xy overlap,  units
+
+    fprintf(stderr, "curves: %lu\n", toolPath.size());
+    int cx=0;
+    for (const auto c : toolPath) {
+        int cvx=0;
+        fprintf(stderr, "vertices: %lu\n", c.m_vertices.size());
+        for (const auto cv : c.m_vertices) {
+          fprintf(stderr, "  point: (%f %f)\n", cv.m_p.x, cv.m_p.y);
+        }
+    }
+
     cut_path(gcode, toolPath, -0.500, -0.500, -1.0);
   }
 
