@@ -33,7 +33,7 @@ var poly_prop = {
 
 var poly_cut_front_v = {
     xyCut: 45, // % of tool diameter
-    points: [
+    curves: [
 	{ x: 2.896, y: -0.867 },
 	{ x: 1.854, y: 0.175 },
 	{ x: 0.813, y: -0.867 }
@@ -42,7 +42,7 @@ var poly_cut_front_v = {
 
 var poly_cut_rear_v = {
     xyCut: 45, // % of tool diameter
-    points: [
+    curves: [
 	{ x: 1.854, y: -0.625 },
 	{ x: 2.896, y: 0.417 },
 	{ x: 0.813, y: 0.417 }

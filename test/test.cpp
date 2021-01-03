@@ -234,14 +234,4 @@ main(int ac, char **av) {
   return 0;
 }
 
-/*
- * Local Variables:
- * mode: C++
- * mode: font-lock
- * c-basic-offset: 2
- * tab-width: 8
- * compile-command: "make"
- * End:
- */
-
 /* end of /Users/eric/work/github/heeks/libarea/test.cpp */
