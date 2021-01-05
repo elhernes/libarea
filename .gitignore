@@ -2,3 +2,8 @@
 obj.*/**
 /node.js/node_modules/
 /node.js/build/
+**/xcuserstate
+**/xcuserdata
+**/xcshareddata
+*.nc
+
