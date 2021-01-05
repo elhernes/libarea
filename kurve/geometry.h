@@ -254,7 +254,7 @@ inline bool FNEZ(double a, double tolerance = TIGHT_TOLERANCE) {return fabs(a) >
 
 		// constructors
 		inline	Point3d(){};// {z=0; /*ok=false;*/};												// Point p1
-		inline	Point3d(const double* xyz) {x = xyz[0], y = xyz[1]; z = xyz[2];}
+        inline	Point3d(const double* xyz) {x = xyz[0]; y = xyz[1]; z = xyz[2];}
 		inline	Point3d( double xord, double yord, double zord = 0/*, bool okay = true*/) {	// Point p1(10,30.5);
 			x = xord; y = yord; z = zord;/* ok = okay;*/}
 		inline	Point3d( const Point3d& p ) {											// copy constructor  Point p1(p2);
@@ -299,7 +299,7 @@ inline bool FNEZ(double a, double tolerance = TIGHT_TOLERANCE) {return fabs(a) >
 		Vector2d() {};
 		inline	Vector2d(const Vector2d &v) { dx = v.dx; dy = v.dy;}
 				Vector2d(const Vector3d &v);		// careful
-		inline	Vector2d(double x, double y) {dx = x, dy = y;}
+        inline	Vector2d(double x, double y) {dx = x; dy = y;}
 		inline	Vector2d(const Point& p0, const Point& p1) {dx = p1.x - p0.x; dy = p1.y - p0.y;}
 		inline	Vector2d(const Point *p0, const Point *p1) {dx = p1->x - p0->x; dy = p1->y - p0->y;}
 		inline	Vector2d(const Point& p) { dx = p.x; dy = p.y;} // from 0,0 to p
@@ -366,9 +366,9 @@ inline bool FNEZ(double a, double tolerance = TIGHT_TOLERANCE) {return fabs(a) >
 		// constructors
 		Vector3d() {};
 		Vector3d(const Vector3d &v) { dx = v.dx; dy = v.dy; dz = v.dz;}
-		Vector3d(double x, double y, double z = 0) {dx = x, dy = y; dz = z;}
-		Vector3d(const double* x) {dx = x[0], dy = x[1]; dz = x[2];}
-		Vector3d(const double* x0, const double* x1) {dx = x1[0] - x0[0], dy = x1[1] - x0[1]; dz = x1[2] - x0[2];}
+        Vector3d(double x, double y, double z = 0) {dx = x; dy = y; dz = z;}
+        Vector3d(const double* x) {dx = x[0]; dy = x[1]; dz = x[2];}
+        Vector3d(const double* x0, const double* x1) {dx = x1[0] - x0[0]; dy = x1[1] - x0[1]; dz = x1[2] - x0[2];}
 		Vector3d(const Point3d& p0, const Point3d& p1) {dx = p1.x - p0.x; dy = p1.y - p0.y; dz = p1.z - p0.z;}
 		Vector3d(const Point3d& p) { dx = p.x; dy = p.y; dz = p.z;} // from 0,0,0 to p
 		Vector3d(const Vector2d& v) {dx = v.getx(); dy = v.gety(); dz = 0;}
@@ -591,7 +591,7 @@ inline bool FNEZ(double a, double tolerance = TIGHT_TOLERANCE) {return fabs(a) >
 
 		// constructor
 		Span() {ID = 0; ok = false;};
-		Span(int spandir, const Point& pn, const Point& pf, const Point& c) { dir = spandir; p0 = pn, p1 = pf, pc = c; ID = 0; SetProperties(true); ok = p0.ok;};
+        Span(int spandir, const Point& pn, const Point& pf, const Point& c) { dir = spandir; p0 = pn; p1 = pf; pc = c; ID = 0; SetProperties(true); ok = p0.ok;};
 
 		// operators
 		//	bool operator==(const Span &sp)const;

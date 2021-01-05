@@ -33,9 +33,9 @@ pocket_mode(const std::string &mode) {
 static bool
 makeCircle(CCurve &curve, const Point &center, double radius) {
   curve.append(center + Point(radius, 0));
-  curve.append(CVertex(1, center + Point(-radius, 0), center));
-  curve.append(CVertex(1, center + Point(-radius, 0), center));
-  curve.append(CVertex(1, center + Point(radius, 0), center));
+  curve.append(CVertex(CVertex::vt_ccw_arc, center + Point(-radius, 0), center));
+  curve.append(CVertex(CVertex::vt_ccw_arc, center + Point(-radius, 0), center));
+  curve.append(CVertex(CVertex::vt_ccw_arc, center + Point(radius, 0), center));
   return true;
 }
 
@@ -111,7 +111,7 @@ polygon_pocket(std::list<CCurve> &toolPath,
                            pm,      // PocketMode Mode,
                            zz_angle);                    // double Zig_angle)
 
-  poly_a.MakePocketToolpath(toolPath, params);
+  poly_a.SplitAndMakePocketToolpath(toolPath, params);
 }
 
 struct ParameterValidator;
@@ -208,9 +208,9 @@ validate_object_properties(const Napi::Value &val, const std::vector<ParameterVa
     auto ob = val.As<Napi::Object>();
     for(auto p = props.begin(); rv==true && p!=props.end(); ++p) {
       rv = ob.Has(p->name) && p->validator(ob.Get(p->name));
-      if (!rv) {
-        fprintf(stderr, "%s: (has %d) (v %d)\n",
-                p->name.c_str(), ob.Has(p->name), p->validator(ob.Get(p->name)));
+      if ((!rv) && false) {
+          fprintf(stderr, "%s: (has %d) (v %d)\n",
+                  p->name.c_str(), ob.Has(p->name), p->validator(ob.Get(p->name)));
       }
     }
   }
@@ -426,7 +426,8 @@ napi_polygon_pocket(const Napi::CallbackInfo& info) {
           double ey=ob.Get("ey").ToNumber().DoubleValue();
           int32_t dir=ob.Get("dir").ToNumber().Int32Value();
 
-          poly_c.append(CVertex(MATH_SIGN(dir), Point(ex,ey), Point(cx,cy)));
+          CVertex::Type type = (dir<0) ? CVertex::vt_cw_arc : CVertex::vt_ccw_arc;
+          poly_c.append(CVertex(type, Point(ex,ey), Point(cx,cy)));
                 
         } else {
         }

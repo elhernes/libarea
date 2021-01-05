@@ -41,11 +41,11 @@ double Line2d::Dist(const Point& p)const
 	return pn.dist(p);
 }
 
-CVertex::CVertex(int type, const Point& p, const Point& c, int user_data):m_type(type), m_p(p), m_c(c), m_user_data(user_data)
+CVertex::CVertex(CVertex::Type type, const Point& p, const Point& c, int user_data):m_type(type), m_p(p), m_c(c), m_user_data(user_data)
 {
 }
 
-CVertex::CVertex(const Point& p, int user_data):m_type(0), m_p(p), m_c(0.0, 0.0), m_user_data(user_data)
+CVertex::CVertex(const Point& p, int user_data):m_type(CVertex::vt_line), m_p(p), m_c(0.0, 0.0), m_user_data(user_data)
 {
 }
 
@@ -188,11 +188,13 @@ void CCurve::AddArcOrLines(bool check_for_arc, std::list<CVertex> &new_vertices,
 		{
 			if (arc_or_line.m_is_a_line || arc_or_line.m_arc.AlmostALine(u.m_tolerance))
 			{
+                            
 				new_vertices.push_back(CVertex(arc_or_line.m_arc.m_e, arc_or_line.m_arc.m_user_data));
 			}
 			else
 			{
-				new_vertices.push_back(CVertex(arc_or_line.m_arc.m_dir ? 1 : -1, arc_or_line.m_arc.m_e, arc_or_line.m_arc.m_c, arc_or_line.m_arc.m_user_data));
+                            CVertex::Type vt = arc_or_line.m_arc.m_dir ? CVertex::vt_ccw_arc : CVertex::vt_ccw_arc;
+				new_vertices.push_back(CVertex(vt, arc_or_line.m_arc.m_e, arc_or_line.m_arc.m_c, arc_or_line.m_arc.m_user_data));
 				CheckAddedRadii(new_vertices);
 			}
 
@@ -361,7 +363,7 @@ void CCurve::UnFitArcs(const Units &u)
 	for(std::list<Point>::iterator It = new_pts.begin(); It != new_pts.end(); It++)
 	{
 		Point &pt = *It;
-		CVertex vertex(0, pt / u.m_scale, Point(0.0, 0.0));
+		CVertex vertex(CVertex::vt_line, pt / u.m_scale, Point(0.0, 0.0));
 		m_vertices.push_back(vertex);
 	}
 }
@@ -450,12 +452,16 @@ void CCurve::Reverse()
 	for(std::list<CVertex>::reverse_iterator It = m_vertices.rbegin(); It != m_vertices.rend(); It++)
 	{
 		CVertex &v = *It;
-		int type = 0;
+		CVertex::Type type = CVertex::vt_line;
 		Point cp(0.0, 0.0);
 		if(prev_v)
 		{
-			type = -prev_v->m_type;
-			cp = prev_v->m_c;
+                    // line stays line;
+                    // ccw arc becomes cw arc
+                    // cw arc becomes ccw arc
+                    type = ((prev_v->m_type == CVertex::vt_line) ? CVertex::vt_line :
+                            REVERSE_ARC_TYPE(prev_v->m_type));
+                    cp = prev_v->m_c;
 		}
 		CVertex new_v(type, v.m_p, cp);
 		new_vertices.push_back(new_v);
@@ -748,7 +754,9 @@ static CCurve MakeCCurve(const geoff_geometry::Kurve& k)
 	{
 		geoff_geometry::spVertex spv;
 		k.Get(i, spv);
-		c.append(CVertex(spv.type, Point(spv.p.x, spv.p.y), Point(spv.pc.x, spv.pc.y)));
+                CVertex::Type type = ((spv.type==0) ? CVertex::vt_line :
+                                      (spv.type==1) ? CVertex::vt_ccw_arc : CVertex::vt_cw_arc);
+		c.append(CVertex(type, Point(spv.p.x, spv.p.y), Point(spv.pc.x, spv.pc.y)));
 	}
 	return c;
 }
@@ -883,9 +891,9 @@ void CCurve::OffsetForward(double forwards_value, const Units &u, bool refit_arc
 			if(sharp_corner)
 			{
 				// add an arc to the start of the next span
-				int arc_type = ((sin_angle > 0) ? 1 : (-1));
-				Point centre = span.m_v.m_p - v * forwards_value;
-				m_vertices.push_back(CVertex(arc_type, next_span.m_p, centre));
+                            CVertex::Type arc_type = ((sin_angle > 0) ? CVertex::vt_ccw_arc : CVertex::vt_cw_arc);
+                            Point centre = span.m_v.m_p - v * forwards_value;
+                            m_vertices.push_back(CVertex(arc_type, next_span.m_p, centre));
 			}
 		}
 	}
@@ -944,7 +952,6 @@ double CCurve::PointToPerim(const Point& p, const Units &u)const
 {
 	double best_dist = 0.0;
 	double perim_at_best_dist = 0.0;
-	Point best_point = Point(0, 0);
 	bool best_dist_found = false;
 
 	double perim = 0.0;
@@ -1040,6 +1047,7 @@ Point Span::NearestPointNotOnSpan(const Point& p)const
 	}
 	else
 	{
+            // XXX: deal w/ CCW vs CW (?)
 		double radius = m_p.dist(m_v.m_c);
 		double r = p.dist(m_v.m_c);
 		if(r < Point::tolerance)return m_p;
@@ -1070,6 +1078,7 @@ Point Span::MidPerim(double d)const {
 		p = vs * d + m_p;
 	}
 	else {
+            // XXX: deal w/ CCW vs CW (?)
 		Point v = m_p - m_v.m_c;
 		double radius = v.length();
 		v.Rotate(d * m_v.m_type / radius);
@@ -1089,6 +1098,7 @@ Point Span::MidParam(double param)const {
 		p = vs * param + m_p;
 	}
 	else {
+            // XXX: deal w/ CCW vs CW (?)
 		Point v = m_p - m_v.m_c;
 		v.Rotate(param * IncludedAngle());
 		p = v + m_v.m_c;
@@ -1230,6 +1240,7 @@ double Span::GetArea()const
 {
 	if(m_v.m_type)
 	{
+            // XXX: deal w/ CCW vs CW (?)
 		double angle = IncludedAngle();
 		double radius = m_p.dist(m_v.m_c);
 		return ( 0.5 * ((m_v.m_c.x - m_p.x) * (m_v.m_c.y + m_p.y) - (m_v.m_c.x - m_v.m_p.x) * (m_v.m_c.y + m_v.m_p.y) - angle * radius * radius));
@@ -1277,6 +1288,7 @@ bool Span::On(const Point& p, double* t)const
 double Span::Length()const
 {
 	if(m_v.m_type) {
+            // XXX: deal w/ CCW vs CW (?)
 		double radius = m_p.dist(m_v.m_c);
 		return fabs(IncludedAngle()) * radius;
 	}

@@ -122,6 +122,7 @@ static CVertex rotated_vertex(const CVertex &v)
 {
 	if(v.m_type)
 	{
+            // XXX: deal w/ CCW vs CW (?)
 		return CVertex(v.m_type, rotated_point(v.m_p), rotated_point(v.m_c));
 	}
     return CVertex(v.m_type, rotated_point(v.m_p), Point(0, 0));
@@ -131,6 +132,7 @@ static CVertex unrotated_vertex(const CVertex &v)
 {
 	if(v.m_type)
 	{
+            // XXX: deal w/ CCW vs CW (?)
 		return CVertex(v.m_type, unrotated_point(v.m_p), unrotated_point(v.m_c));
 	}
 	return CVertex(v.m_type, unrotated_point(v.m_p), Point(0, 0));
@@ -440,11 +442,11 @@ static void zigzag(const CArea &input_a)
 		Point p2(x1, y);
 		Point p3(x1, y0);
 		CCurve c;
-		c.m_vertices.push_back(CVertex(0, p0, null_point, 0));
-		c.m_vertices.push_back(CVertex(0, p1, null_point, 0));
-		c.m_vertices.push_back(CVertex(0, p2, null_point, 1));
-		c.m_vertices.push_back(CVertex(0, p3, null_point, 0));
-		c.m_vertices.push_back(CVertex(0, p0, null_point, 1));
+		c.m_vertices.push_back(CVertex(CVertex::vt_line, p0, null_point, 0));
+		c.m_vertices.push_back(CVertex(CVertex::vt_line, p1, null_point, 0));
+		c.m_vertices.push_back(CVertex(CVertex::vt_line, p2, null_point, 1));
+		c.m_vertices.push_back(CVertex(CVertex::vt_line, p3, null_point, 0));
+		c.m_vertices.push_back(CVertex(CVertex::vt_line, p0, null_point, 1));
 		CArea a2(input_a.m_units);
 		a2.m_curves.push_back(c);
 		a2.Intersect(a);
@@ -502,18 +504,18 @@ void CArea::MakePocketToolpath(std::list<CCurve> &curve_list, const CAreaPocketP
 	}
 	else if(params.mode == SpiralPocketMode)
 	{
-		std::list<CArea> m_areas;
-		a_offset.Split(m_areas);
+		std::list<CArea> areas;
+		a_offset.Split(areas);
 		if(CArea::m_please_abort)return;
-		if(m_areas.size() == 0)
+		if(areas.size() == 0)
 		{
 			CArea::m_processing_done += CArea::m_single_area_processing_length;
 			return;
 		}
 
-		CArea::m_single_area_processing_length /= m_areas.size();
+		CArea::m_single_area_processing_length /= areas.size();
 
-		for(std::list<CArea>::iterator It = m_areas.begin(); It != m_areas.end(); It++)
+		for(std::list<CArea>::iterator It = areas.begin(); It != areas.end(); It++)
 		{
 			CArea &a2 = *It;
 			a2.MakeOnePocketCurve(curve_list, params);
@@ -531,15 +533,15 @@ void CArea::MakePocketToolpath(std::list<CCurve> &curve_list, const CAreaPocketP
 	}
 }
 
-void CArea::Split(std::list<CArea> &m_areas)const
+void CArea::Split(std::list<CArea> &areas)const
 {
 	if(IsBoolean())
 	{
 		for(std::list<CCurve>::const_iterator It = m_curves.begin(); It != m_curves.end(); It++)
 		{
 			const CCurve& curve = *It;
-			m_areas.push_back(CArea(m_units));
-			m_areas.back().m_curves.push_back(curve);
+			areas.push_back(CArea(m_units));
+			areas.back().m_curves.push_back(curve);
 		}
 	}
 	else
@@ -554,13 +556,13 @@ void CArea::Split(std::list<CArea> &m_areas)const
 			const CCurve& curve = *It;
 			if(curve.IsClockwise())
 			{
-				if(m_areas.size() > 0)
-					m_areas.back().m_curves.push_back(curve);
+				if(areas.size() > 0)
+					areas.back().m_curves.push_back(curve);
 			}
 			else
 			{
-				m_areas.push_back(CArea(m_units));
-				m_areas.back().m_curves.push_back(curve);
+				areas.push_back(CArea(m_units));
+				areas.back().m_curves.push_back(curve);
 			}
 		}
 	}

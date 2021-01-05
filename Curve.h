@@ -23,16 +23,25 @@ public:
 
 class CArc;
 
+// ccw arc becomes cw arc
+// cw arc becomes ccw arc
+#define REVERSE_ARC_TYPE(tt) (((tt) == CVertex::vt_ccw_arc) ? CVertex::vt_cw_arc : CVertex::vt_ccw_arc)
+
 class CVertex
 {
 public:
-	int m_type; // 0 - line ( or start point ), 1 - anti-clockwise arc, -1 - clockwise arc
+    enum Type {
+        vt_line =0,
+        vt_ccw_arc =1,
+        vt_cw_arc =-1
+    };
+	Type m_type; // 0 - line ( or start point ), 1 - anti-clockwise arc, -1 - clockwise arc
 	Point m_p; // end point
 	Point m_c; // centre point in absolute coordinates
 	int m_user_data;
 
-	CVertex():m_type(0), m_p(Point(0, 0)), m_c(Point(0,0)), m_user_data(0){}
-	CVertex(int type, const Point& p, const Point& c, int user_data = 0);
+	CVertex():m_type(vt_line), m_p(Point(0, 0)), m_c(Point(0,0)), m_user_data(0){}
+	CVertex(Type type, const Point& p, const Point& c, int user_data = 0);
 	CVertex(const Point& p, int user_data = 0);
 };
 

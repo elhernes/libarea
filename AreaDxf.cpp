@@ -27,5 +27,5 @@ void AreaDxfRead::OnReadLine(const double* s, const double* e)
 void AreaDxfRead::OnReadArc(const double* s, const double* e, const double* c, bool dir)
 {
 	StartCurveIfNecessary(s);
-	m_area->m_curves.back().m_vertices.push_back(CVertex(dir?1:0, Point(e), Point(c)));
+	m_area->m_curves.back().m_vertices.push_back(CVertex(dir?CVertex::vt_ccw_arc:CVertex::vt_cw_arc, Point(e), Point(c)));
 }

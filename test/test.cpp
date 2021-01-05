@@ -20,12 +20,29 @@
 
 #include <math.h>
 
+#define VT_LINE CVertex::vt_line
+#define VT_CCW_ARC CVertex::vt_ccw_arc
+#define VT_CW_ARC CVertex::vt_cw_arc
+
+void
+dump_clist(const char *tag, const std::list<CCurve> &clist) {
+  unsigned cx=0;
+  for(const auto &c : clist) {
+    unsigned vx=0;
+    for(const auto &v : c.m_vertices) {
+      printf("%s(%d:%d): (type %d) (xy %f %f)\n", tag, cx, vx, v.m_type, v.m_p.x, v.m_p.y);
+      vx++;
+    }
+    cx++;
+  }
+}
+
 static bool
 makeCircle(CCurve &curve, const Point &center, double radius) {
   curve.append(center + Point(radius, 0));
-  curve.append(CVertex(1, center + Point(-radius, 0), center));
-  curve.append(CVertex(1, center + Point(-radius, 0), center));
-  curve.append(CVertex(1, center + Point(radius, 0), center));
+  curve.append(CVertex(CVertex::vt_ccw_arc, center + Point(-radius, 0), center));
+  curve.append(CVertex(CVertex::vt_ccw_arc, center + Point(-radius, 0), center));
+  curve.append(CVertex(CVertex::vt_ccw_arc, center + Point(radius, 0), center));
   return true;
 }
 
@@ -151,7 +168,7 @@ triangle_pocket(std::list<CCurve> &toolPath, double tool_diameter,
   makeTriangle(tri_c, Point(x0, y0), Point(x1,y1), Point(x2,y2));
 
   unsigned i=0;
-  for(const auto v : tri_c.m_vertices) {
+    for(const auto &v : tri_c.m_vertices) {
       fprintf(stderr, "point[%d] (%f %f)\n", i, v.m_p.x, v.m_p.y);
       i++;
   }
@@ -176,6 +193,26 @@ triangle_pocket(std::list<CCurve> &toolPath, double tool_diameter,
   tri_a.MakePocketToolpath(toolPath, params);
 }
 
+static void
+polygon_pocket(std::list<CCurve> &toolPath,
+               double tool_diameter, PocketMode pm, double zz_angle, double xyPct,
+               const CCurve &poly_c, const Units &u) {
+
+  CArea poly_a(u);
+  poly_a.append(poly_c);
+  dump_clist("poly_a", poly_a.m_curves);
+
+  CAreaPocketParams params(tool_diameter / 2,
+                           0,                     // double Extra_offset
+                           tool_diameter * xyPct, // double Stepover,
+                           false,                 // bool From_center,
+                           pm,      // PocketMode Mode,
+                           zz_angle);                    // double Zig_angle)
+
+  poly_a.MakePocketToolpath(toolPath, params);
+}
+
+
 int
 main(int ac, char **av) {
   Point p(0, 0);
@@ -190,7 +227,7 @@ main(int ac, char **av) {
   std::list<CCurve> toolPath;
 
   GCodeWriter gcode("pocket.nc", 0);
-  if (0) {
+    if (/* DISABLES CODE */ (0)) {
     circular_pocket(toolPath, 0.125/*tool diameter*/,
                     1.5, 1.5, /* cx,cy */
                     1.5, /* outer radius */
@@ -200,7 +237,7 @@ main(int ac, char **av) {
     cut_path(gcode, toolPath, -0.125, 0., 0.125);
   }
 
-  if (0) {
+  if (/* DISABLES CODE */ (0)) {
     toolPath.clear();
     rect_pocket(toolPath, 0.125, /*tool diameter*/
                 1.5, 1.5, // bottom left x, y
@@ -210,7 +247,7 @@ main(int ac, char **av) {
     cut_path(gcode, toolPath, -0.250, 0., 0.125);
   }
   
-  if (1) {
+    if (/* DISABLES CODE */ (0)) {
     toolPath.clear();
     triangle_pocket(toolPath, 10./25.4, /*tool diameter*/
                     2.693, -0.663, // p2
@@ -219,16 +256,106 @@ main(int ac, char **av) {
                     0.45, u);  // xy overlap,  units
 
     fprintf(stderr, "curves: %lu\n", toolPath.size());
-    int cx=0;
-    for (const auto c : toolPath) {
-        int cvx=0;
+    for (const auto &c : toolPath) {
         fprintf(stderr, "vertices: %lu\n", c.m_vertices.size());
-        for (const auto cv : c.m_vertices) {
+          for (const auto &cv : c.m_vertices) {
           fprintf(stderr, "  point: (%f %f)\n", cv.m_p.x, cv.m_p.y);
         }
     }
 
     cut_path(gcode, toolPath, -0.500, -0.500, -1.0);
+  }
+
+  if (1) {
+    toolPath.clear();
+    CCurve poly_c;
+
+    int layer = 4;
+
+    if (layer == 1) { // Layer1 - slant w/ goiters
+      poly_c.append(Point(1.5, 2.150));
+      poly_c.append(CVertex(VT_CCW_ARC, Point(1.067,2.150), Point(1.283,1.283)));
+      poly_c.append(Point(0, 2.150));
+      poly_c.append(Point(0, 0.650));
+      poly_c.append(CVertex(VT_CCW_ARC, Point(0.650,0), Point(0.650,0.650)));
+      poly_c.append(Point(2.150, 0));
+      poly_c.append(Point(2.150, 1.067));
+      poly_c.append(CVertex(VT_CCW_ARC, Point(2.150,1.5), Point(2.150,2.150)));
+      poly_c.append(Point(1.5, 2.150));    }
+
+    if (layer == 2) { // Layer2 - actual part
+      poly_c.append(Point(0, 0.650));
+      poly_c.append(CVertex(VT_CCW_ARC, Point(0.650,0), Point(0.650,0.650)));
+      poly_c.append(Point(2.150, 0));
+      poly_c.append(Point(2.150, 1.067));
+      poly_c.append(Point(2.150, 1.5));
+      poly_c.append(CVertex(VT_CW_ARC, Point(1.5,2.150), Point(2.150,2.150)));
+      poly_c.append(Point(1.067, 2.150));
+      poly_c.append(Point(0, 2.150));
+      poly_c.append(Point(0, 0.650));      
+    }
+
+    if (layer == 3) { // Layer3 - part w/ goiters
+    
+      poly_c.append(Point(1.5, 2.150));
+      poly_c.append(CVertex(VT_CCW_ARC, Point(1.067,2.150), Point(1.283,1.283)));
+      poly_c.append(Point(0, 2.150));
+      poly_c.append(Point(0, 0.650));
+      poly_c.append(CVertex(VT_CCW_ARC, Point(0.650,0), Point(0.650,0.650)));
+      poly_c.append(Point(2.150, 0));
+      poly_c.append(Point(2.150, 1.067));
+      poly_c.append(CVertex(VT_CCW_ARC, Point(2.150,1.5), Point(2.150,2.150)));
+      poly_c.append(CVertex(VT_CW_ARC, Point(1.50,2.150), Point(2.150,2.150)));
+    }
+
+    if (layer == 4) { // Layer1 - slant w/ goiters
+      poly_c.append(Point(1.5, 2.150000000000003));
+      poly_c.append(CVertex(CVertex::vt_ccw_arc, Point(1.066929133858268,2.150000000000003), Point(1.283464566929134,1.283464566929134)));
+      poly_c.append(Point(9e-16, 2.150000000000002));
+      poly_c.append(Point(-9e-16, 0.6500000000000018));
+      poly_c.append(CVertex(CVertex::vt_ccw_arc, Point(0.6499999999999998,1.4432899320127035e-15), Point(0.6499999999999999,0.6499999999999999)));
+      poly_c.append(Point(2.149999999999999, 4e-16));
+      poly_c.append(Point(2.149999999999999, 1.066929133858268));
+      poly_c.append(CVertex(CVertex::vt_ccw_arc, Point(2.149999999999993,1.5), Point(2.149999999999993,2.149999999999993)));
+      poly_c.append(Point(1.5, 2.150000000000001));    }
+
+    if (layer == 5) { // Layer2 - actual part
+      poly_c.append(Point(1.1102230246251565e-16, 0.650000000000008));
+      poly_c.append(CVertex(CVertex::vt_ccw_arc, Point(0.6499999999999998,1.4432899320127035e-15), Point(0.6499999999999999,0.6499999999999999)));
+      poly_c.append(Point(2.149999999999999, 4e-16));
+      poly_c.append(Point(2.149999999999999, 1.066929133858268));
+      poly_c.append(Point(2.149999999999993, 1.5));
+      poly_c.append(CVertex(CVertex::vt_cw_arc, Point(1.4999999999999996,2.1500000000000075), Point(2.150000000000001,2.150000000000001)));
+      poly_c.append(Point(1.066929133858268, 2.150000000000002));
+      poly_c.append(Point(9e-16, 2.150000000000002));
+      poly_c.append(Point(-9e-16, 0.6500000000000018));      
+    }
+
+    if (layer == 6) { // Layer3 - part w/ goiters
+    
+      poly_c.append(Point(1.5, 2.150000000000003));
+      poly_c.append(CVertex(CVertex::vt_ccw_arc, Point(1.066929133858268,2.150000000000003), Point(1.283464566929134,1.283464566929134)));
+      poly_c.append(Point(9e-16, 2.150000000000002));
+      poly_c.append(Point(-9e-16, 0.6500000000000018));
+      poly_c.append(CVertex(CVertex::vt_ccw_arc, Point(0.6499999999999998,1.4432899320127035e-15), Point(0.6499999999999999,0.6499999999999999)));
+      poly_c.append(Point(2.149999999999999, 4e-16));
+      poly_c.append(Point(2.149999999999999, 1.066929133858268));
+      poly_c.append(CVertex(CVertex::vt_ccw_arc, Point(2.149999999999993,1.5), Point(2.149999999999993,2.149999999999993)));
+      poly_c.append(CVertex(CVertex::vt_cw_arc, Point(1.4999999999999996,2.1500000000000075), Point(2.150000000000001,2.150000000000001)));
+    }
+
+
+    polygon_pocket(toolPath,
+                   10./25.4, /*tool diameter*/
+                   SpiralPocketMode, /* mode */
+                   0., // zz_angle
+                   0.45, // xy-pct
+                   poly_c,
+                   Units(25.4, 0.001));
+
+    fprintf(stderr, "curves: %lu\n", toolPath.size());
+
+    cut_path(gcode, toolPath, -0.500, -0.500, 1.0);
   }
 
   return 0;

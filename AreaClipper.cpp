@@ -121,11 +121,11 @@ static void MakeLoop(const DoubleAreaPoint &pt0, const DoubleAreaPoint &pt1, con
 	Point right1(forward1.y, -forward1.x);
 	right1.normalize();
 
-	int arc_dir = (radius > 0) ? 1 : -1;
+        CVertex::Type arc_dir = (radius > 0) ? CVertex::vt_ccw_arc : CVertex::vt_cw_arc;
 
-	CVertex v0(0, p1 + right0 * radius, Point(0, 0));
+	CVertex v0(CVertex::vt_line, p1 + right0 * radius, Point(0, 0));
 	CVertex v1(arc_dir, p1 + right1 * radius, p1);
-	CVertex v2(0, p2 + right1 * radius, Point(0, 0));
+	CVertex v2(CVertex::vt_line, p2 + right1 * radius, Point(0, 0));
 
 	AddVertex(v1, &v0, Units(1.0, 0.01));
 	AddVertex(v2, &v1, Units(1.0, 0.01));
@@ -164,7 +164,7 @@ static void OffsetWithLoops(const TPolyPolygon &pp, TPolyPolygon &pp_new, double
 		{
 			if(reverse)
 			{
-				for(unsigned int j = p.size()-1; j > 1; j--)MakeLoop(p[j], p[j-1], p[j-2], radius);
+				for(size_t j = p.size()-1; j > 1; j--)MakeLoop(p[j], p[j-1], p[j-2], radius);
 				MakeLoop(p[1], p[0], p[p.size()-1], radius);
 				MakeLoop(p[0], p[p.size()-1], p[p.size()-2], radius);
 			}
@@ -208,7 +208,7 @@ static void OffsetWithLoops(const TPolyPolygon &pp, TPolyPolygon &pp_new, double
 			const TPolygon& p = copy[i];
 			TPolygon p_new;
 			p_new.resize(p.size());
-			int size_minus_one = p.size() - 1;
+			size_t size_minus_one = p.size() - 1;
 			for(unsigned int j = 0; j < p.size(); j++)p_new[j] = p[size_minus_one - j];
 			pp_new[i] = p_new;
 		}
@@ -227,9 +227,9 @@ static void MakeObround(const Point &pt0, const CVertex &vt1, double radius)
 
 	CVertex v0(pt0 + right0 * radius);
 	CVertex v1(vt1.m_type, vt1.m_p + right1 * radius, vt1.m_c);
-	CVertex v2(1, vt1.m_p + right1 * -radius, vt1.m_p);
-	CVertex v3(-vt1.m_type, pt0 + right0 * -radius, vt1.m_c);
-	CVertex v4(1, pt0 + right0 * radius, pt0);
+	CVertex v2(CVertex::vt_ccw_arc, vt1.m_p + right1 * -radius, vt1.m_p);
+	CVertex v3(REVERSE_ARC_TYPE(vt1.m_type), pt0 + right0 * -radius, vt1.m_c);
+	CVertex v4(CVertex::vt_ccw_arc, pt0 + right0 * radius, pt0);
 
         Units u(1.0, 0.01);
 
@@ -282,7 +282,7 @@ static void OffsetSpansWithObrounds(const CArea& area, TPolyPolygon &pp_new, dou
 		const TPolygon& p = copy[i];
 		TPolygon p_new;
 		p_new.resize(p.size());
-		int size_minus_one = p.size() - 1;
+		size_t size_minus_one = p.size() - 1;
 		for(unsigned int j = 0; j < p.size(); j++)p_new[j] = p[size_minus_one - j];
 		pp_new[i] = p_new;
 	}
@@ -307,7 +307,7 @@ static void MakePolyPoly( const CArea& area, TPolyPolygon &pp, const Units &u, b
 		p.resize(pts_for_AddVertex.size());
 		if(reverse)
 		{
-			unsigned int i = pts_for_AddVertex.size() - 1;// clipper wants them the opposite way to CArea
+			size_t i = pts_for_AddVertex.size() - 1;// clipper wants them the opposite way to CArea
 			for(std::list<DoubleAreaPoint>::iterator It = pts_for_AddVertex.begin(); It != pts_for_AddVertex.end(); It++, i--)
 			{
 				p[i] = It->int_point();
@@ -353,7 +353,7 @@ static void SetFromResult( CCurve& curve, const TPolygon& p, const Units &u, boo
 	{
 		const IntPoint &pt = p[j];
 		DoubleAreaPoint dp(pt);
-		CVertex vertex(0, Point(dp.X / u.m_scale, dp.Y / u.m_scale), Point(0.0, 0.0));
+		CVertex vertex(CVertex::vt_line, Point(dp.X / u.m_scale, dp.Y / u.m_scale), Point(0.0, 0.0));
 		if(reverse)curve.m_vertices.push_front(vertex);
 		else curve.m_vertices.push_back(vertex);
 	}
@@ -487,7 +487,7 @@ void UnFitArcs(CCurve &curve, const Units &u)
 	for(std::list<DoubleAreaPoint>::iterator It = pts_for_AddVertex.begin(); It != pts_for_AddVertex.end(); It++)
 	{
 		DoubleAreaPoint &pt = *It;
-		CVertex vertex(0, Point(pt.X / u.m_scale, pt.Y / u.m_scale), Point(0.0, 0.0));
+		CVertex vertex(CVertex::vt_line, Point(pt.X / u.m_scale, pt.Y / u.m_scale), Point(0.0, 0.0));
 		curve.m_vertices.push_back(vertex);
 	}
 }
