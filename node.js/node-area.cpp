@@ -23,10 +23,10 @@
 static PocketMode
 pocket_mode(const std::string &mode) {
   PocketMode rv;
-  if (mode == "SpiralPocketMode") rv = SpiralPocketMode;
-  else if (mode == "ZigZagPocketMode") rv = ZigZagPocketMode;
-  else if (mode == "SingleOffsetPocketMode") rv = SingleOffsetPocketMode;
-  else if (mode == "ZigZagThenSingleOffsetPocketMode") rv = ZigZagThenSingleOffsetPocketMode;
+  if (mode == "Spiral") rv = SpiralPocketMode;
+  else if (mode == "ZigZag") rv = ZigZagPocketMode;
+  else if (mode == "SingleOffset") rv = SingleOffsetPocketMode;
+  else if (mode == "ZigZagThenSingleOffset") rv = ZigZagThenSingleOffsetPocketMode;
   return rv;
 }
 
@@ -116,12 +116,13 @@ polygon_pocket(std::list<CCurve> &toolPath,
 
 struct ParameterValidator;
 
-static bool validate_object_properties(const Napi::Value &val, const std::vector<ParameterValidator> &props);
+static bool validate_object_properties(const Napi::Value &val, const std::vector<ParameterValidator> &props,
+                                       std::string &err);
 
 struct ParameterValidator {
   std::string name;
-  std::function<bool(const Napi::Value &val)> validator;
-  static bool isAnyType(const Napi::Value &val) {
+  std::function<bool(const Napi::Value &val, std::string &)> validator;
+  static bool isAnyType(const Napi::Value &val, std::string &) {
     fprintf(stderr, "(" "IsArray" " %d)\n", val.IsArray ());
     fprintf(stderr, "(" "IsArrayBuffer" " %d)\n", val.IsArrayBuffer ());
     fprintf(stderr, "(" "IsBoolean" " %d)\n", val.IsBoolean ());
@@ -143,36 +144,45 @@ struct ParameterValidator {
     fprintf(stderr, "(" "IsUndefined" " %d)\n", val.IsUndefined ());
     return true;
   };
-  static bool isObject(const Napi::Value &val) { return val.IsObject(); };
-  static bool isBoolean(const Napi::Value &val) { return val.IsBoolean(); };
-  static bool isString(const Napi::Value &val) { return val.IsString(); };
-  static bool isNumber(const Napi::Value &val) { return val.IsNumber(); };
+  static bool isObject(const Napi::Value &val, std::string &) { return val.IsObject(); };
+  static bool isBoolean(const Napi::Value &val, std::string &) { return val.IsBoolean(); };
+  static bool isString(const Napi::Value &val, std::string &) { return val.IsString(); };
+  static bool isNumber(const Napi::Value &val, std::string &) { return val.IsNumber(); };
 
-  static bool isArrayOf(const Napi::Value &val, const std::vector<ParameterValidator> &props) {
+  static bool isArrayOf(const Napi::Value &val, const std::vector<ParameterValidator> &props,
+                        std::string &err) {
     bool rv = val.IsArray();
     if (rv) {
       Napi::Array ar = val.As<Napi::Array>();
       int n = ar.Length();
       for(unsigned i=0; i<n && rv; i++) {
-        rv &= validate_object_properties(ar.Get(i), props);
+        rv &= validate_object_properties(ar.Get(i), props, err);
+        if (!rv) {
+          err = "element " + std::to_string(i) + " does not conform";
+        }
       }
     }
     return rv;
   }
 
-  static bool isArrayOf(const Napi::Value &val, std::function<bool(const Napi::Value &val)> validator) {
+  static bool isArrayOf(const Napi::Value &val,
+                        std::function<bool(const Napi::Value &val, std::string &err)> validator,
+                        std::string &err) {
     bool rv = val.IsArray();
     if (rv) {
       Napi::Array ar = val.As<Napi::Array>();
       int n = ar.Length();
       for(unsigned i=0; i<n && rv; i++) {
-        rv &= validator(ar.Get(i));
+        rv &= validator(ar.Get(i), err);
+        if (!rv) {
+          err = "element " + std::to_string(i) + " does not conform";
+        }
       }
     }
     return rv;
   }
 
-  static bool isEnum(const Napi::Value &val, const std::vector<std::string> &valid) {
+  static bool isEnum(const Napi::Value &val, const std::vector<std::string> &valid, std::string &err) {
     bool rv = val.IsString();
     if (rv) {
       std::string ss = static_cast<std::string>(val.ToString());
@@ -181,36 +191,44 @@ struct ParameterValidator {
         vv |= (ss == v);
       }
       rv = vv;
+      if (!rv) {
+        err = ss + " is not an enum value";
+      }
     }
     return rv;
   };
 };
 
 static const std::vector<std::string> skModeValues = {
-  "SpiralPocketMode",
-  "ZigZagPocketMode",
-  "SingleOffsetPocketMode",
-  "ZigZagThenSingleOffsetPocketMode"
+  "Spiral",
+  "ZigZag",
+  "SingleOffset",
+  "ZigZagThenSingleOffset"
 };
 
 static const std::vector<ParameterValidator> skCutProps = {
   { "tool_diameter",  ParameterValidator::isNumber },
-  { "mode", [](const Napi::Value &v)->bool { return ParameterValidator::isEnum(v,skModeValues); } },
+  { "mode", [](const Napi::Value &v, std::string &err)->bool { return ParameterValidator::isEnum(v,skModeValues, err); } },
   { "zz_angle", ParameterValidator::isNumber },
   { "units_scale", ParameterValidator::isNumber },
-  { "tolerance", ParameterValidator::isNumber }
+  { "accuracy", ParameterValidator::isNumber }
 };
 
 bool
-validate_object_properties(const Napi::Value &val, const std::vector<ParameterValidator> &props) {
+validate_object_properties(const Napi::Value &val, const std::vector<ParameterValidator> &props,
+                           std::string &err) {
+  err = "";
   bool rv=val.IsObject();
   if (rv) {
     auto ob = val.As<Napi::Object>();
     for(auto p = props.begin(); rv==true && p!=props.end(); ++p) {
-      rv = ob.Has(p->name) && p->validator(ob.Get(p->name));
-      if ((!rv) && false) {
-          fprintf(stderr, "%s: (has %d) (v %d)\n",
-                  p->name.c_str(), ob.Has(p->name), p->validator(ob.Get(p->name)));
+      rv = ob.Has(p->name) && p->validator(ob.Get(p->name),err);
+      if ((!rv)) {
+        if (!ob.Has(p->name)) {
+          err = p->name + " is missing";
+        } else {
+          err = p->name + " failed validation";
+        }
       }
     }
   }
@@ -226,9 +244,9 @@ static const std::vector<ParameterValidator> skCirclePositionProps = {
 
 static const std::vector<ParameterValidator> skCircleProps = {
   { "finish", ParameterValidator::isBoolean },
-  { "xyCut", ParameterValidator::isNumber },
-  { "position", [](const Napi::Value &v)->bool {
-      return ParameterValidator::isArrayOf(v, skCirclePositionProps);
+  { "xyPct", ParameterValidator::isNumber },
+  { "position", [](const Napi::Value &v, std::string &err)->bool {
+      return ParameterValidator::isArrayOf(v, skCirclePositionProps, err);
     } }
 };
 
@@ -261,7 +279,7 @@ point_to_object(Napi::Object &ob, const CVertex &cv) {
 
 static void
 mk_return_toolpath(Napi::Array &rv, std::list<CCurve> toolPath) {
-//    fprintf(stderr, "curves: %lu\n", toolPath.size());
+//    fprintf(stderr, "outerPath: %lu\n", toolPath.size());
   int cx=0;
   for (const auto c : toolPath) {
     Napi::Array cc = Napi::Array::New(rv.Env(), c.m_vertices.size());
@@ -282,16 +300,16 @@ napi_circle_pocket(const Napi::CallbackInfo& info) {
   if(info.Length()!=2) {
     Napi::TypeError::New(env, "Expected 2 Arguments").ThrowAsJavaScriptException();
   }
-
-  bool st = validate_object_properties(info[0], skCutProps);
+  std::string err;
+  bool st = validate_object_properties(info[0], skCutProps, err);
   if (!st) {
-    Napi::TypeError::New(env, "arg[0] doesn't conform").ThrowAsJavaScriptException();
+    Napi::TypeError::New(env, "arg[0]: " + err).ThrowAsJavaScriptException();
   }
 
   if (st) {
-    st = validate_object_properties(info[1], skCircleProps);
+    st = validate_object_properties(info[1], skCircleProps, err);
     if (!st) {
-      Napi::TypeError::New(env, "arg[1] doesn't conform").ThrowAsJavaScriptException();            
+      Napi::TypeError::New(env, "arg[1]: " + err).ThrowAsJavaScriptException();            
     }
   }
 
@@ -302,47 +320,28 @@ napi_circle_pocket(const Napi::CallbackInfo& info) {
     PocketMode pm = pocket_mode(static_cast<std::string>(info[0].As<Napi::Object>().Get("mode").ToString()));
     double zz_angle = info[0].As<Napi::Object>().Get("zz_angle").ToNumber().DoubleValue();
     double units_scale = info[0].As<Napi::Object>().Get("units_scale").ToNumber().DoubleValue();
-    double tolerance = info[0].As<Napi::Object>().Get("tolerance").ToNumber().DoubleValue();
+    double accuracy = info[0].As<Napi::Object>().Get("accuracy").ToNumber().DoubleValue();
 
     bool finish  = info[1].As<Napi::Object>().Get("finish").ToBoolean().Value();
-    double xyCut = info[1].As<Napi::Object>().Get("xyCut").ToNumber().DoubleValue()/100.;
+    double xyPct = info[1].As<Napi::Object>().Get("xyPct").ToNumber().DoubleValue()/100.;
 
     std::list<CCurve> toolPath;
 
     Napi::Array ar = info[1].As<Napi::Object>().Get("position").As<Napi::Array>();
     int n = ar.Length();
-    Units units(units_scale, tolerance);
+    Units units(units_scale, accuracy);
     for(unsigned i=0; i<n; i++) {
       Napi::Object ob = ar.Get(i).As<Napi::Object>();
       circle_pocket(toolPath, tool_diameter, pm, zz_angle,
                     ob.Get("xc").ToNumber().DoubleValue(), ob.Get("yc").ToNumber().DoubleValue(),
                     ob.Get("rOuter").ToNumber().DoubleValue(), ob.Get("rInner").ToNumber().DoubleValue(),
-                    xyCut, units);
+                    xyPct, units);
     }
     mk_return_toolpath(rv, toolPath);
   }
 
   return rv;
 }
-
-/*
-  arg[0] = tool diameter
-  arg[1] = parameters
-  {
-  finish: t/f
-  tool_comp: "inside", "outside", ""
-  zCut: % of tool diameter
-  xyCut: % of tool diameter
-  zHeight: 
-  zDepth:
-  position: [
-  {     x: 
-  y: 
-  xLen: 
-  yLen: 
-  } ]
-  }
-*/
 
 static Napi::Array
 napi_rectangle_pocket(const Napi::CallbackInfo& info) {
@@ -365,49 +364,55 @@ static const std::vector<ParameterValidator> skPolygonArcProps = {
 };
 
 static const std::vector<ParameterValidator> skPolygonProps = {
-  { "xyCut", ParameterValidator::isNumber },
-  { "curves", [](const Napi::Value &v)->bool {
-      return (ParameterValidator::isArrayOf(v, [](const Napi::Value &val)->bool {
-            return ((validate_object_properties(val, skPolygonPointProps) ||
-                     validate_object_properties(val, skPolygonArcProps)));
-          } ) );
+  { "xyPct", ParameterValidator::isNumber },
+  { "outerPath", [](const Napi::Value &v, std::string &err)->bool {
+      return (ParameterValidator::isArrayOf(v, [](const Napi::Value &val, std::string &err)->bool {
+            std::string e1;
+            bool v1 = validate_object_properties(val, skPolygonPointProps, e1);
+            std::string e2;
+            bool v2 = validate_object_properties(val, skPolygonArcProps, e2);
+            bool rv =(v1 || v2);
+            if (!rv) {
+              err = e1 + " / " + e2;
+            }
+            return rv;
+          }, err ) );
     } }
 };
 
 static Napi::Array
 napi_polygon_pocket(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
-  Napi::Array rv = Napi::Array::New(env);
+  if(info.Length()!=2) {
+    Napi::TypeError::New(env, "Expected 2 Arguments").ThrowAsJavaScriptException();
+  }
+  std::string err;
+  bool st = validate_object_properties(info[0], skCutProps, err);
+  if (!st) {
+    Napi::TypeError::New(env, "arg[0]: " + err).ThrowAsJavaScriptException();
+  }
 
-  try {
-    if(info.Length()!=2) {
-      Napi::TypeError::New(env, "Expected 2 Arguments").ThrowAsJavaScriptException();
-    }
-
-    bool st = validate_object_properties(info[0], skCutProps);
+  if (st) {
+    st = validate_object_properties(info[1], skPolygonProps, err);
     if (!st) {
-      Napi::TypeError::New(env, "arg[0] doesn't conform to cut properties").ThrowAsJavaScriptException();
+      Napi::TypeError::New(env, "arg[1]: " + err).ThrowAsJavaScriptException();            
     }
+  }
 
-    if (st) {
-      st = validate_object_properties(info[1], skPolygonProps);
-      if (!st) {
-        Napi::TypeError::New(env, "arg[1] doesn't conform to polygon properties").ThrowAsJavaScriptException();            
-      }
-    }
-
+  Napi::Array rv = Napi::Array::New(env);
+  try {
     if (st) {
       double tool_diameter = info[0].As<Napi::Object>().Get("tool_diameter").ToNumber().DoubleValue();
       PocketMode pm = pocket_mode(static_cast<std::string>(info[0].As<Napi::Object>().Get("mode").ToString()));
       double zz_angle = info[0].As<Napi::Object>().Get("zz_angle").ToNumber().DoubleValue();
       double units_scale = info[0].As<Napi::Object>().Get("units_scale").ToNumber().DoubleValue();
-      double tolerance = info[0].As<Napi::Object>().Get("tolerance").ToNumber().DoubleValue();
+      double accuracy = info[0].As<Napi::Object>().Get("accuracy").ToNumber().DoubleValue();
 
-      double xyCut = info[1].As<Napi::Object>().Get("xyCut").ToNumber().DoubleValue()/100.;
+      double xyPct = info[1].As<Napi::Object>().Get("xyPct").ToNumber().DoubleValue()/100.;
         
-      Napi::Array ar = info[1].As<Napi::Object>().Get("curves").As<Napi::Array>();
+      Napi::Array ar = info[1].As<Napi::Object>().Get("outerPath").As<Napi::Array>();
       int n = ar.Length();
-      Units units(units_scale, tolerance);
+      Units units(units_scale, accuracy);
 
       CCurve poly_c;
 
@@ -435,14 +440,17 @@ napi_polygon_pocket(const Napi::CallbackInfo& info) {
 
       // XXX-ELH: polygon must start with a point for now
       // this closes the object
-      {
+      if (0) {
         Napi::Object ob = ar.Get(uint32_t(0)).As<Napi::Object>();
         double x=ob.Get("x").ToNumber().DoubleValue();
         double y=ob.Get("y").ToNumber().DoubleValue();
         poly_c.append(Point(x,y));
       }
       std::list<CCurve> toolPath;
-      polygon_pocket(toolPath, tool_diameter, pm, zz_angle, xyCut, poly_c, units);
+//      poly_c.UnFitArcs(units);
+//      poly_c.FitArcs(units);
+      fprintf(stderr, "%s: (poly_c has %lu vertices)\n", __func__, poly_c.m_vertices.size());
+      polygon_pocket(toolPath, tool_diameter, pm, zz_angle, xyPct, poly_c, units);
 
       mk_return_toolpath(rv, toolPath);
     }

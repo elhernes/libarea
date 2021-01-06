@@ -38,9 +38,9 @@ struct CAreaPocketParams
 
 class Units {
 public:
-    Units(double s, double t) : m_scale(s), m_tolerance(t) {}
+    Units(double s, double a) : m_scale(s), m_accuracy(a) {}
     double m_scale;
-    double m_tolerance;
+    double m_accuracy;
 };
 
 class CArea

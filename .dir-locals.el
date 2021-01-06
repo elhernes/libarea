@@ -1,6 +1,8 @@
 ;;; $Id$
-((c-mode . ((indent-tabs-mode .  nil)))
- (c++-mode . ((indent-tabs-mode .  nil)))
+((c-mode . (indent-tabs-mode .  nil)
+	 (c-basic-offset . 2))
+ (c++-mode . (indent-tabs-mode .  nil)
+	   (c-basic-offset . 2))
  (nil . ((flycheck-clang-language-standard . "c++11")
          (flycheck-clang-include-path . ("."
                                          "test"

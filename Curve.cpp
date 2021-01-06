@@ -96,9 +96,9 @@ bool CCurve::CheckForArc(const CVertex& prev_vt, std::list<const CVertex*>& migh
 	for(std::list<const CVertex*>::iterator It = might_be_an_arc.begin(); It != might_be_an_arc.end(); It++)
 	{
 		const CVertex* vt = *It;
-		if(!c.PointIsOn(vt->m_p, u.m_tolerance / u.m_scale * 0.1))
+		if(!c.PointIsOn(vt->m_p, u.m_accuracy / u.m_scale * 0.1))
 			return false;
-		if(!c.LineIsOn(current_vt->m_p, vt->m_p, u.m_tolerance * 2.0 / u.m_scale))
+		if(!c.LineIsOn(current_vt->m_p, vt->m_p, u.m_accuracy * 2.0 / u.m_scale))
 			return false;
 		current_vt = vt;
 	}
@@ -186,7 +186,7 @@ void CCurve::AddArcOrLines(bool check_for_arc, std::list<CVertex> &new_vertices,
 	{
 		if (arc_found)
 		{
-			if (arc_or_line.m_is_a_line || arc_or_line.m_arc.AlmostALine(u.m_tolerance))
+			if (arc_or_line.m_is_a_line || arc_or_line.m_arc.AlmostALine(u.m_accuracy))
 			{
                             
 				new_vertices.push_back(CVertex(arc_or_line.m_arc.m_e, arc_or_line.m_arc.m_user_data));
@@ -321,7 +321,7 @@ void CCurve::UnFitArcs(const Units &u)
 
 				//what is the delta phi to get an accurancy of aber
 				double radius = sqrt(dx*dx + dy*dy);
-				dphi=2*acos((radius-u.m_tolerance)/radius);
+				dphi=2*acos((radius-u.m_accuracy)/radius);
 
 				//set the number of segments
 				if (phit > 0)
@@ -1112,9 +1112,9 @@ Point Span::NearestPointToSpan(const Span& p, double &d, const Units &u)const
 	Point np = p.NearestPoint(m_p);
 	Point best_point = m_p;
 	double dist = np.dist(m_p);
-	if(p.m_start_span)dist -= (u.m_tolerance * 2); // give start of curve most priority
+	if(p.m_start_span)dist -= (u.m_accuracy * 2); // give start of curve most priority
 	Point npm = p.NearestPoint(midpoint);
-	double dm = npm.dist(midpoint) - u.m_tolerance; // lie about midpoint distance to give midpoints priority
+	double dm = npm.dist(midpoint) - u.m_accuracy; // lie about midpoint distance to give midpoints priority
 	if(dm < dist){dist = dm; best_point = midpoint;}
 	Point np2 = p.NearestPoint(m_v.m_p);
 	double dp2 = np2.dist(m_v.m_p);

@@ -73,7 +73,7 @@ static void AddVertex(const CVertex& vertex, const CVertex* prev_vertex, const U
 
 		//what is the delta phi to get an accurancy of aber
 		double radius = sqrt(dx*dx + dy*dy);
-		dphi=2*acos((radius-u.m_tolerance)/radius);
+		dphi=2*acos((radius-u.m_accuracy)/radius);
 
 		//set the number of segments
 		if (phit > 0)
