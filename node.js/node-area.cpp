@@ -99,10 +99,10 @@ rect_pocket(std::list<CCurve> &toolPath, double tool_diameter, PocketMode pm, do
 static void
 polygon_pocket(std::list<CCurve> &toolPath,
                double tool_diameter, PocketMode pm, double zz_angle, double xyPct,
-               const CCurve &poly_c, const Units &u) {
+               const CArea &outer_a, const CArea &inner_a) {
 
-  CArea poly_a(u);
-  poly_a.append(poly_c);
+  CArea poly_a = outer_a;
+  poly_a.Xor(inner_a);
 
   CAreaPocketParams params(tool_diameter / 2,
                            0,                     // double Extra_offset
@@ -363,22 +363,62 @@ static const std::vector<ParameterValidator> skPolygonArcProps = {
   { "dir", ParameterValidator::isNumber }, // direction -1=cw, 1=ccw
 };
 
+static bool
+isPolygon(const Napi::Value &v, std::string &err) {
+  return ParameterValidator::isArrayOf(v, [](const Napi::Value &val, std::string &err)->bool {
+      std::string e1;
+      bool v1 = validate_object_properties(val, skPolygonPointProps, e1);
+      std::string e2;
+      bool v2 = validate_object_properties(val, skPolygonArcProps, e2);
+      bool rv =(v1 || v2);
+      if (!rv) {
+	err = e1 + " / " + e2;
+      }
+      return rv;
+    }, err);
+}
+    
 static const std::vector<ParameterValidator> skPolygonProps = {
   { "xyPct", ParameterValidator::isNumber },
-  { "outerPath", [](const Napi::Value &v, std::string &err)->bool {
-      return (ParameterValidator::isArrayOf(v, [](const Napi::Value &val, std::string &err)->bool {
-            std::string e1;
-            bool v1 = validate_object_properties(val, skPolygonPointProps, e1);
-            std::string e2;
-            bool v2 = validate_object_properties(val, skPolygonArcProps, e2);
-            bool rv =(v1 || v2);
-            if (!rv) {
-              err = e1 + " / " + e2;
-            }
-            return rv;
-          }, err ) );
+  { "outerPath", isPolygon },
+  { "innerPath", [](const Napi::Value &v, std::string &err)->bool {
+      return ParameterValidator::isArrayOf(v, isPolygon, err);
     } }
 };
+
+static void
+mk_curve_from_array(CCurve &curve, const Napi::Array &ar) {
+  int n = ar.Length();
+  for(unsigned i=0; i<n; i++) {
+    Napi::Object ob = ar.Get(i).As<Napi::Object>();
+
+    if (ob.Has("x")) { // point/line
+      double x=ob.Get("x").ToNumber().DoubleValue();
+      double y=ob.Get("y").ToNumber().DoubleValue();
+      curve.append(Point(x,y));
+
+    } else if(ob.Has("cx")) { // arc
+      double cx=ob.Get("cx").ToNumber().DoubleValue();
+      double cy=ob.Get("cy").ToNumber().DoubleValue();
+      double ex=ob.Get("ex").ToNumber().DoubleValue();
+      double ey=ob.Get("ey").ToNumber().DoubleValue();
+      int32_t dir=ob.Get("dir").ToNumber().Int32Value();
+
+      CVertex::Type type = (dir<0) ? CVertex::vt_cw_arc : CVertex::vt_ccw_arc;
+      curve.append(CVertex(type, Point(ex,ey), Point(cx,cy)));
+                
+    } else { // something else
+    }
+  }
+  // XXX-ELH: polygon must start with a point for now
+  // this closes the object
+  if (0) {
+    Napi::Object ob = ar.Get(uint32_t(0)).As<Napi::Object>();
+    double x=ob.Get("x").ToNumber().DoubleValue();
+    double y=ob.Get("y").ToNumber().DoubleValue();
+    curve.append(Point(x,y));
+  }
+}
 
 static Napi::Array
 napi_polygon_pocket(const Napi::CallbackInfo& info) {
@@ -410,47 +450,28 @@ napi_polygon_pocket(const Napi::CallbackInfo& info) {
 
       double xyPct = info[1].As<Napi::Object>().Get("xyPct").ToNumber().DoubleValue()/100.;
         
-      Napi::Array ar = info[1].As<Napi::Object>().Get("outerPath").As<Napi::Array>();
-      int n = ar.Length();
+      Napi::Array outer = info[1].As<Napi::Object>().Get("outerPath").As<Napi::Array>();
       Units units(units_scale, accuracy);
 
-      CCurve poly_c;
+      CCurve outer_c;
+      mk_curve_from_array(outer_c, outer);
+      CArea outer_a(units);
+      outer_a.append(outer_c);
 
-      for(unsigned i=0; i<n; i++) {
-        Napi::Object ob = ar.Get(i).As<Napi::Object>();
+      Napi::Array inner = info[1].As<Napi::Object>().Get("innerPath").As<Napi::Array>();
 
-        if (ob.Has("x")) { // point/line
-          double x=ob.Get("x").ToNumber().DoubleValue();
-          double y=ob.Get("y").ToNumber().DoubleValue();
-          poly_c.append(Point(x,y));
-
-        } else if(ob.Has("cx")) {
-          double cx=ob.Get("cx").ToNumber().DoubleValue();
-          double cy=ob.Get("cy").ToNumber().DoubleValue();
-          double ex=ob.Get("ex").ToNumber().DoubleValue();
-          double ey=ob.Get("ey").ToNumber().DoubleValue();
-          int32_t dir=ob.Get("dir").ToNumber().Int32Value();
-
-          CVertex::Type type = (dir<0) ? CVertex::vt_cw_arc : CVertex::vt_ccw_arc;
-          poly_c.append(CVertex(type, Point(ex,ey), Point(cx,cy)));
-                
-        } else {
-        }
+      CArea inner_a(units);
+      for(unsigned i=0; i<inner.Length(); i++) {
+	CCurve i1;
+	mk_curve_from_array(i1, inner.Get(i).As<Napi::Array>());
+	inner_a.append(i1);
       }
 
-      // XXX-ELH: polygon must start with a point for now
-      // this closes the object
-      if (0) {
-        Napi::Object ob = ar.Get(uint32_t(0)).As<Napi::Object>();
-        double x=ob.Get("x").ToNumber().DoubleValue();
-        double y=ob.Get("y").ToNumber().DoubleValue();
-        poly_c.append(Point(x,y));
-      }
       std::list<CCurve> toolPath;
-//      poly_c.UnFitArcs(units);
-//      poly_c.FitArcs(units);
-      fprintf(stderr, "%s: (poly_c has %lu vertices)\n", __func__, poly_c.m_vertices.size());
-      polygon_pocket(toolPath, tool_diameter, pm, zz_angle, xyPct, poly_c, units);
+//      outer_c.UnFitArcs(units);
+//      outer_c.FitArcs(units);
+//      fprintf(stderr, "%s: (poly_c has %lu vertices)\n", __func__, outer_c.m_vertices.size());
+      polygon_pocket(toolPath, tool_diameter, pm, zz_angle, xyPct, outer_a, inner_a);
 
       mk_return_toolpath(rv, toolPath);
     }
