@@ -221,7 +221,7 @@ main(int ac, char **av) {
   std::list<CCurve> toolPath;
 
   GCodeWriter gcode("pocket.nc", 0);
-    if (/* DISABLES CODE */ (0)) {
+    if (/* DISABLES CODE */ (1)) {
     circular_pocket(toolPath, 0.125/*tool diameter*/,
                     1.5, 1.5, /* cx,cy */
                     1.5, /* outer radius */

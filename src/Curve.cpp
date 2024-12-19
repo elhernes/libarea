@@ -205,21 +205,23 @@ void CCurve::AddArcOrLines(bool check_for_arc, std::list<CVertex> &new_vertices,
 			if (check_for_arc)might_be_an_arc.push_back(back_vt);
 		}
 		else
-		{
-			const CVertex* back_vt = might_be_an_arc.back();
-			if (check_for_arc)might_be_an_arc.pop_back();
-			for (std::list<const CVertex*>::iterator It = might_be_an_arc.begin(); It != might_be_an_arc.end(); It++)
-			{
-				const CVertex* v = *It;
-				if (It != might_be_an_arc.begin() || (new_vertices.size() == 0) || (new_vertices.back().m_p != v->m_p))
-				{
-					new_vertices.push_back(*v);
-					CheckAddedRadii(new_vertices);
-				}
-			}
-			might_be_an_arc.clear();
-			if (check_for_arc)might_be_an_arc.push_back(back_vt);
-		}
+        {
+          if (might_be_an_arc.size()>0) {
+            const CVertex* back_vt = might_be_an_arc.back();
+            if (check_for_arc)might_be_an_arc.pop_back();
+            for (std::list<const CVertex*>::iterator It = might_be_an_arc.begin(); It != might_be_an_arc.end(); It++)
+            {
+              const CVertex* v = *It;
+              if (It != might_be_an_arc.begin() || (new_vertices.size() == 0) || (new_vertices.back().m_p != v->m_p))
+              {
+                new_vertices.push_back(*v);
+                CheckAddedRadii(new_vertices);
+              }
+            }
+            might_be_an_arc.clear();
+            if (check_for_arc)might_be_an_arc.push_back(back_vt);
+          }
+        }
 	}
 }
 
