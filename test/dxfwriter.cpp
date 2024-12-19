@@ -14,7 +14,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
-#include "writer.h"
+#include "Writer.h"
 
 DxfWriter::DxfWriter(const char *txt_file) {
     m_fp = fopen(txt_file, "w");

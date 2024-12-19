@@ -12,9 +12,9 @@
  *
  */
 
-#include "Area.h"
-#include "Curve.h"
-#include "Point.h"
+#include "../src/Area.h"
+#include "../src/Curve.h"
+#include "../src/Point.h"
 #include "Writer.h"
 #include <stdio.h>
 
