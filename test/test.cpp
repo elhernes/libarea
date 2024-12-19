@@ -66,42 +66,36 @@ makeTriangle(CCurve &curve, const Point &p0, const Point &p1, const Point &p2) {
 }
 
 static void
-cut_path(Writer &out, std::list<CCurve> &toolpath, double depth, double zStart,
-         double zSafe) {
-  for (std::list<CCurve>::const_iterator i = toolpath.begin();
-       i != toolpath.end(); i++) {
+cut_path(Writer &out, std::list<CCurve> &toolpath, double depth, double zStart, double zCut, double zSafe) {
+  for (auto i = toolpath.begin(); i != toolpath.end(); i++) {
     const CCurve &c = *i;
 
-    double px = 0.0;
-    double py = 0.0;
-    bool firstPoint = true;
-    for (std::list<CVertex>::const_iterator vi = c.m_vertices.begin();
-         vi != c.m_vertices.end(); vi++) {
-      const CVertex &v = *vi;
-      if (firstPoint) {
-        // rapid across
-        out.OnRapidXY(v.m_p.x, v.m_p.y);
+    auto start = c.m_vertices.begin();
+    double px = start->m_p.x;
+    double py = start->m_p.y;
+    out.OnRapidXY(px,py);
+    out.OnRapidZ(zStart);
 
-        // rapid down
-        out.OnRapidZ(zStart);
-
-        // feed down
-        out.OnFeedZ(depth);
-      } else {
+    double zFinal = (zStart-depth);
+    for(double zz=(zStart-zCut); zz>(zFinal-zCut); zz-=zCut) {
+      out.OnFeedZ(std::max(zz,zFinal));
+      for (auto vi = ++c.m_vertices.begin(); vi != c.m_vertices.end(); vi++) {
+        const CVertex &v = *vi;
         if (v.m_type == 1) {
           out.OnArcCCW(v.m_p.x, v.m_p.y, v.m_c.x - px, v.m_c.y - py);
 
         } else if (v.m_type == -1) {
           out.OnArcCW(v.m_p.x, v.m_p.y, v.m_c.y - px, v.m_c.y - py);
+
         } else {
           out.OnFeedXY(v.m_p.x, v.m_p.y);
         }
+
+        px = v.m_p.x;
+        py = v.m_p.y;
       }
-      px = v.m_p.x;
-      py = v.m_p.y;
-      firstPoint = false;
+      out.OnRapidZ(zSafe);
     }
-    out.OnRapidZ(zSafe);
   }
 }
 
@@ -234,22 +228,22 @@ main(int ac, char **av) {
                     0.75, /* inner radius */
                     0.45, u); /* xy overlap */
 
-    cut_path(gcode, toolPath, -0.125, 0., 0.125);
+    cut_path(gcode, toolPath, 0.125, 0., 0.030, 0.125);
   }
 
-  if (/* DISABLES CODE */ (0)) {
+  if (/* DISABLES CODE */ (1)) {
     toolPath.clear();
     rect_pocket(toolPath, 0.125, /*tool diameter*/
-                1.5, 1.5, // bottom left x, y
+                3.5, 1.5, // bottom left x, y
                 1.50, 3.50, // width, height
                 0.45, u);  // xy overlap,  units
 
-    cut_path(gcode, toolPath, -0.250, 0., 0.125);
+    cut_path(gcode, toolPath, 0.250, 0., 0.055, 0.125);
   }
   
-    if (/* DISABLES CODE */ (0)) {
+    if (/* DISABLES CODE */ (1)) {
     toolPath.clear();
-    triangle_pocket(toolPath, 10./25.4, /*tool diameter*/
+    triangle_pocket(toolPath, 3./25.4, /*tool diameter*/
                     2.693, -0.663, // p2
                     1.854, 0.175, // p1
                     1.016, -0.663, // p0
@@ -263,7 +257,7 @@ main(int ac, char **av) {
         }
     }
 
-    cut_path(gcode, toolPath, -0.500, -0.500, -1.0);
+    cut_path(gcode, toolPath, 0.500, -0.500, 0.125, 1.0);
   }
 
   if (1) {
@@ -346,8 +340,9 @@ main(int ac, char **av) {
 
 
     polygon_pocket(toolPath,
-                   10./25.4, /*tool diameter*/
-                   SpiralPocketMode, /* mode */
+                   5./25.4, /*tool diameter*/
+		   ZigZagThenSingleOffsetPocketMode, /* mode */
+		   //                   SpiralPocketMode, /* mode */
                    0., // zz_angle
                    0.45, // xy-pct
                    poly_c,
@@ -355,7 +350,7 @@ main(int ac, char **av) {
 
     fprintf(stderr, "curves: %lu\n", toolPath.size());
 
-    cut_path(gcode, toolPath, -0.500, -0.500, 1.0);
+    cut_path(gcode, toolPath, 0.500, -0.500, 0.095, 1.0);
   }
 
   return 0;
