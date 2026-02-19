@@ -500,12 +500,12 @@ void CArea::MakePocketToolpath(std::list<CCurve> &curve_list, const CAreaPocketP
 
 	a_offset.Offset(current_offset);
 
-	if(params.mode == ZigZagPocketMode || params.mode == ZigZagThenSingleOffsetPocketMode)
+	if(params.mode == PocketMode::ZigZag || params.mode == PocketMode::ZigZagThenSingleOffset)
 	{
 		curve_list_for_zigs = &curve_list;
 		zigzag(a_offset);
 	}
-	else if(params.mode == SpiralPocketMode)
+	else if(params.mode == PocketMode::Spiral)
 	{
 		std::list<CArea> areas;
 		a_offset.Split(areas);
@@ -524,7 +524,7 @@ void CArea::MakePocketToolpath(std::list<CCurve> &curve_list, const CAreaPocketP
 		}
 	}
 
-	if(params.mode == SingleOffsetPocketMode || params.mode == ZigZagThenSingleOffsetPocketMode)
+	if(params.mode == PocketMode::SingleOffset || params.mode == PocketMode::ZigZagThenSingleOffset)
 	{
 		// add the single offset too
 		for(auto &curve : a_offset.m_curves)
@@ -580,7 +580,7 @@ double CArea::GetArea(bool always_add)const
 	return area;
 }
 
-eOverlapType GetOverlapType(const CCurve& c1, const CCurve& c2)
+OverlapType GetOverlapType(const CCurve& c1, const CCurve& c2)
 {
     CArea a1(Units(1.0, 0.001));
 	a1.m_curves.push_back(c1);
@@ -590,31 +590,31 @@ eOverlapType GetOverlapType(const CCurve& c1, const CCurve& c2)
 	return GetOverlapType(a1, a2);
 }
 
-eOverlapType GetOverlapType(const CArea& a1, const CArea& a2)
+OverlapType GetOverlapType(const CArea& a1, const CArea& a2)
 {
 	CArea A1(a1);
 
 	A1.Subtract(a2);
 	if(A1.m_curves.size() == 0)
 	{
-		return eInside;
+		return OverlapType::Inside;
 	}
 
 	CArea A2(a2);
 	A2.Subtract(a1);
 	if(A2.m_curves.size() == 0)
 	{
-		return eOutside;
+		return OverlapType::Outside;
 	}
 
 	A1 = a1;
 	A1.Intersect(a2);
 	if(A1.m_curves.size() == 0)
 	{
-		return eSiblings;
+		return OverlapType::Siblings;
 	}
 
-	return eCrossing;
+	return OverlapType::Crossing;
 }
 #if 0
 bool IsInside(const Point& p, const CCurve& c)

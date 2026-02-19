@@ -115,11 +115,11 @@ circular_pocket(std::list<CCurve> &toolPath, double tool_diameter, double cx,
 
   outerArea.Xor(innerArea);
 
-  PocketMode pm = SpiralPocketMode;
-//  PocketMode pm = ZigZagPocketMode;
-//  PocketMode pm = SingleOffsetPocketMode;
-//  PocketMode pm = ZigZagThenSingleOffsetPocketMode;
-  
+  PocketMode pm = PocketMode::Spiral;
+//  PocketMode pm = PocketMode::ZigZag;
+//  PocketMode pm = PocketMode::SingleOffset;
+//  PocketMode pm = PocketMode::ZigZagThenSingleOffset;
+
   CAreaPocketParams params(tool_diameter / 2,
                            0,                     // double Extra_offset
                            tool_diameter * xyPct, // double Stepover,
@@ -137,10 +137,10 @@ rect_pocket(std::list<CCurve> &toolPath, double tool_diameter, double x0,
   CArea rect_a(u);
   rect_a.append(rect_c);
 
-  PocketMode pm = SpiralPocketMode;
-//  PocketMode pm = ZigZagPocketMode;
-//  PocketMode pm = SingleOffsetPocketMode;
-//  PocketMode pm = ZigZagThenSingleOffsetPocketMode;
+  PocketMode pm = PocketMode::Spiral;
+//  PocketMode pm = PocketMode::ZigZag;
+//  PocketMode pm = PocketMode::SingleOffset;
+//  PocketMode pm = PocketMode::ZigZagThenSingleOffset;
   
   CAreaPocketParams params(tool_diameter / 2,
                            0,                     // double Extra_offset
@@ -170,12 +170,12 @@ triangle_pocket(std::list<CCurve> &toolPath, double tool_diameter,
   CArea tri_a(u);
   tri_a.append(tri_c);
 
-//  PocketMode pm = SpiralPocketMode;
-//  PocketMode pm = ZigZagPocketMode;
-//  PocketMode pm = SingleOffsetPocketMode;
-  PocketMode pm = ZigZagThenSingleOffsetPocketMode;
+//  PocketMode pm = PocketMode::Spiral;
+//  PocketMode pm = PocketMode::ZigZag;
+//  PocketMode pm = PocketMode::SingleOffset;
+  PocketMode pm = PocketMode::ZigZagThenSingleOffset;
 
-  fprintf(stderr, "pocket mode is %d\n", pm);
+  fprintf(stderr, "pocket mode is %d\n", static_cast<int>(pm));
   
   CAreaPocketParams params(tool_diameter / 2,
                            0,                     // double Extra_offset
@@ -341,8 +341,8 @@ main(int ac, char **av) {
 
     polygon_pocket(toolPath,
                    5./25.4, /*tool diameter*/
-		   ZigZagThenSingleOffsetPocketMode, /* mode */
-		   //                   SpiralPocketMode, /* mode */
+		   PocketMode::ZigZagThenSingleOffset, /* mode */
+		   //                   PocketMode::Spiral, /* mode */
                    0., // zz_angle
                    0.45, // xy-pct
                    poly_c,

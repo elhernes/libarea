@@ -210,7 +210,7 @@ void CurveTree::MakeOffsets2(const Units &u)
 	{
 		const IslandAndOffset* island_and_offset = *It;
 
-		if(GetOverlapType(island_and_offset->offset, smaller) == eInside)
+		if(GetOverlapType(island_and_offset->offset, smaller) == OverlapType::Inside)
 			It++; // island is still inside
 		else
 		{
@@ -311,7 +311,7 @@ void CurveTree::MakeOffsets2(const Units &u)
 
 		for(const auto *island_and_offset : offset_islands)
 		{
-			if(GetOverlapType(island_and_offset->offset, separate_area) == eInside)
+			if(GetOverlapType(island_and_offset->offset, separate_area) == OverlapType::Inside)
 				nearest_curve_tree->inners.back()->offset_islands.push_back(island_and_offset);
 			if(CArea::m_please_abort)return;
 		}
@@ -407,7 +407,7 @@ void MarkOverlappingOffsetIslands(std::list<IslandAndOffset> &offset_islands)
 			IslandAndOffset &o1 = *It1;
 			IslandAndOffset &o2 = *It2;
 
-			if(GetOverlapType(o1.offset, o2.offset) == eCrossing)
+			if(GetOverlapType(o1.offset, o2.offset) == OverlapType::Crossing)
 			{
 				o1.touching_offsets.push_back(&o2);
 				o2.touching_offsets.push_back(&o1);

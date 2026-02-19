@@ -23,10 +23,10 @@
 static PocketMode
 pocket_mode(const std::string &mode) {
   PocketMode rv;
-  if (mode == "Spiral") rv = SpiralPocketMode;
-  else if (mode == "ZigZag") rv = ZigZagPocketMode;
-  else if (mode == "SingleOffset") rv = SingleOffsetPocketMode;
-  else if (mode == "ZigZagThenSingleOffset") rv = ZigZagThenSingleOffsetPocketMode;
+  if (mode == "Spiral") rv = PocketMode::Spiral;
+  else if (mode == "ZigZag") rv = PocketMode::ZigZag;
+  else if (mode == "SingleOffset") rv = PocketMode::SingleOffset;
+  else if (mode == "ZigZagThenSingleOffset") rv = PocketMode::ZigZagThenSingleOffset;
   return rv;
 }
 

@@ -33,19 +33,19 @@ void CInnerCurves::Insert(const CCurve* pcurve, const Units &u)
 	{
 		switch(GetOverlapType(*pcurve, *(c->m_curve)))
 		{
-		case eOutside:
+		case OverlapType::Outside:
 			outside_of_these.push_back(c);
 			break;
 
-		case eInside:
+		case OverlapType::Inside:
 			// insert in this inner curve
                     c->Insert(pcurve, u);
 			return;
 
-		case eSiblings:
+		case OverlapType::Siblings:
 			break;
 
-		case eCrossing:
+		case OverlapType::Crossing:
 			crossing_these.push_back(c);
 			break;
 		}

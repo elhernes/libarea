@@ -7,12 +7,12 @@
 
 #include "Curve.h"
 
-enum PocketMode
+enum class PocketMode
 {
-	SpiralPocketMode,
-	ZigZagPocketMode,
-	SingleOffsetPocketMode,
-	ZigZagThenSingleOffsetPocketMode,
+	Spiral,
+	ZigZag,
+	SingleOffset,
+	ZigZagThenSingleOffset,
 };
 
 struct CAreaPocketParams
@@ -80,15 +80,15 @@ public:
 	void InsideCurves(const CCurve& curve, std::list<CCurve> &curves_inside)const;
 };
 
-enum eOverlapType
+enum class OverlapType
 {
-	eOutside,
-	eInside,
-	eSiblings,
-	eCrossing,
+	Outside,
+	Inside,
+	Siblings,
+	Crossing,
 };
 
-eOverlapType GetOverlapType(const CCurve& c1, const CCurve& c2);
-eOverlapType GetOverlapType(const CArea& a1, const CArea& a2);
+OverlapType GetOverlapType(const CCurve& c1, const CCurve& c2);
+OverlapType GetOverlapType(const CArea& a1, const CArea& a2);
 bool IsInside(const Point& p, const CCurve& c);
 bool IsInside(const Point& p, const CArea& a);
