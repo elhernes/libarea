@@ -19,7 +19,6 @@ class CInnerCurves
     CArea *m_unite_area; // new curves made by uniting are stored here
 
 public:
-    static CAreaOrderer* area_orderer;
     CInnerCurves(CInnerCurves* pOuter, const CCurve* curve);
     ~CInnerCurves();
 

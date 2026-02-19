@@ -5,8 +5,6 @@
 #include "AreaOrderer.h"
 #include "Area.h"
 
-CAreaOrderer* CInnerCurves::area_orderer = nullptr;
-
 CInnerCurves::CInnerCurves(CInnerCurves* pOuter, const CCurve* curve)
 	: m_pOuter(pOuter), m_curve(curve), m_unite_area(nullptr)
 {
@@ -132,8 +130,6 @@ CAreaOrderer::CAreaOrderer()
 
 void CAreaOrderer::Insert(CCurve* pcurve, const Units &u)
 {
-	CInnerCurves::area_orderer = this;
-
 	// make them all anti-clockwise as they come in
 	if(pcurve->IsClockwise())pcurve->Reverse();
 

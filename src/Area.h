@@ -37,6 +37,17 @@ public:
     double m_accuracy;
 };
 
+struct CAreaProcessingContext {
+	bool fit_arcs = true;
+	bool please_abort = false;
+	double processing_done = 0.0;
+	double single_area_processing_length = 0.0;
+	double after_MakeOffsets_length = 0.0;
+	double MakeOffsets_increment = 0.0;
+	double split_processing_length = 0.0;
+	bool set_processing_length_in_split = false;
+};
+
 class CArea
 {
 public:
@@ -44,16 +55,6 @@ public:
     CArea(const CArea &rhs);
     std::list<CCurve> m_curves;
     Units m_units;
-//	static double m_accuracy;
-//	static double m_units; // 1.0 for mm, 25.4 for inches. All points are multiplied by this before going to the engine
-	static bool m_fit_arcs;
-	static double m_processing_done; // 0.0 to 100.0, set inside MakeOnePocketCurve
-	static double m_single_area_processing_length;
-	static double m_after_MakeOffsets_length;
-	static double m_MakeOffsets_increment;
-	static double m_split_processing_length;
-	static bool m_set_processing_length_in_split;
-	static bool m_please_abort; // the user sets this from another thread, to tell MakeOnePocketCurve to finish with no result.
 
 	void append(const CCurve& curve);
 	void Subtract(const CArea& a2);
@@ -67,12 +68,12 @@ public:
 	size_t num_curves() const {return m_curves.size();}
 	Point NearestPoint(const Point& p)const;
 	void GetBox(CBox2D &box) const;
-	void Reorder();
-	void MakePocketToolpath(std::list<CCurve> &toolpath, const CAreaPocketParams &params)const;
-	void SplitAndMakePocketToolpath(std::list<CCurve> &toolpath, const CAreaPocketParams &params)const;
-	void MakeOnePocketCurve(std::list<CCurve> &curve_list, const CAreaPocketParams &params)const;
+	void Reorder(CAreaProcessingContext *ctx = nullptr);
+	void MakePocketToolpath(std::list<CCurve> &toolpath, const CAreaPocketParams &params, CAreaProcessingContext *ctx = nullptr)const;
+	void SplitAndMakePocketToolpath(std::list<CCurve> &toolpath, const CAreaPocketParams &params, CAreaProcessingContext *ctx = nullptr)const;
+	void MakeOnePocketCurve(std::list<CCurve> &curve_list, const CAreaPocketParams &params, CAreaProcessingContext *ctx = nullptr)const;
 	static bool IsBoolean();
-	void Split(std::list<CArea> &m_areas)const;
+	void Split(std::list<CArea> &m_areas, CAreaProcessingContext *ctx = nullptr)const;
 	double GetArea(bool always_add = false)const;
 	void SpanIntersections(const Span& span, std::list<Point> &pts)const;
 	void CurveIntersections(const CCurve& curve, std::list<Point> &pts)const;

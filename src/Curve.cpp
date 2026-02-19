@@ -9,7 +9,6 @@
 #include "kurve/geometry.h"
 
 const Point operator*(const double &d, const Point &p){ return p * d;}
-double Point::tolerance = 0.001;
 
 //static const double PI = 3.1415926535897932; duplicated in kurve/geometry.h
 

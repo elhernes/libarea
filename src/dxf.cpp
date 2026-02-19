@@ -903,68 +903,55 @@ bool CDxfRead::ReadEllipse()
 }
 
 
-static bool poly_prev_found = false;
-static double poly_prev_x;
-static double poly_prev_y;
-static double poly_prev_z;
-static double poly_prev_bulge_found;
-static double poly_prev_bulge;
-static bool poly_first_found = false;
-static double poly_first_x;
-static double poly_first_y;
-static double poly_first_z;
-
-static void AddPolyLinePoint(CDxfRead* dxf_read, double x, double y, double z, bool bulge_found, double bulge)
+void CDxfRead::AddPolyLinePoint(double x, double y, double z, bool bulge_found, double bulge)
 {
-
 	try {
-		if(poly_prev_found)
+		if(m_poly.prev_found)
 		{
 			bool arc_done = false;
-			if(poly_prev_bulge_found)
+			if(m_poly.prev_bulge_found)
 			{
-				double cot = 0.5 * ((1.0 / poly_prev_bulge) - poly_prev_bulge);
-				double cx = ((poly_prev_x + x) - ((y - poly_prev_y) * cot)) / 2.0;
-				double cy = ((poly_prev_y + y) + ((x - poly_prev_x) * cot)) / 2.0;
-				double ps[3] = {poly_prev_x, poly_prev_y, poly_prev_z};
+				double cot = 0.5 * ((1.0 / m_poly.prev_bulge) - m_poly.prev_bulge);
+				double cx = ((m_poly.prev_x + x) - ((y - m_poly.prev_y) * cot)) / 2.0;
+				double cy = ((m_poly.prev_y + y) + ((x - m_poly.prev_x) * cot)) / 2.0;
+				double ps[3] = {m_poly.prev_x, m_poly.prev_y, m_poly.prev_z};
 				double pe[3] = {x, y, z};
-				double pc[3] = {cx, cy, (poly_prev_z + z)/2.0};
-				dxf_read->OnReadArc(ps, pe, pc, poly_prev_bulge >= 0);
+				double pc[3] = {cx, cy, (m_poly.prev_z + z)/2.0};
+				OnReadArc(ps, pe, pc, m_poly.prev_bulge >= 0);
 				arc_done = true;
 			}
 
 			if(!arc_done)
 			{
-				double s[3] = {poly_prev_x, poly_prev_y, poly_prev_z};
+				double s[3] = {m_poly.prev_x, m_poly.prev_y, m_poly.prev_z};
 				double e[3] = {x, y, z};
-				dxf_read->OnReadLine(s, e);
+				OnReadLine(s, e);
 			}
 		}
 
-		poly_prev_found = true;
-		poly_prev_x = x;
-		poly_prev_y = y;
-		poly_prev_z = z;
-		if(!poly_first_found)
+		m_poly.prev_found = true;
+		m_poly.prev_x = x;
+		m_poly.prev_y = y;
+		m_poly.prev_z = z;
+		if(!m_poly.first_found)
 		{
-			poly_first_x = x;
-			poly_first_y = y;
-			poly_first_z = z;
-			poly_first_found = true;
+			m_poly.first_x = x;
+			m_poly.first_y = y;
+			m_poly.first_z = z;
+			m_poly.first_found = true;
 		}
-		poly_prev_bulge_found = bulge_found;
-		poly_prev_bulge = bulge;
+		m_poly.prev_bulge_found = bulge_found;
+		m_poly.prev_bulge = bulge;
 	}
 	catch(...)
 	{
-		if (! dxf_read->IgnoreErrors())	throw;	// Re-throw it.
+		if (!IgnoreErrors()) throw;
 	}
 }
 
-static void PolyLineStart()
+void CDxfRead::PolyLineStart()
 {
-	poly_prev_found = false;
-	poly_first_found = false;
+	m_poly = PolyState{};
 }
 
 bool CDxfRead::ReadLwPolyLine()
@@ -1000,7 +987,7 @@ bool CDxfRead::ReadLwPolyLine()
 			        DerefACI();
 			        if(x_found && y_found){
 					// add point
-					AddPolyLinePoint(this, x, y, z, bulge_found, bulge);
+					AddPolyLinePoint(x, y, z, bulge_found, bulge);
 					bulge_found = false;
 					x_found = false;
 					y_found = false;
@@ -1017,7 +1004,7 @@ bool CDxfRead::ReadLwPolyLine()
 				get_line();
 				if(x_found && y_found){
 					// add point
-					AddPolyLinePoint(this, x, y, z, bulge_found, bulge);
+					AddPolyLinePoint(x, y, z, bulge_found, bulge);
 					bulge_found = false;
 					x_found = false;
 					y_found = false;
@@ -1057,11 +1044,11 @@ bool CDxfRead::ReadLwPolyLine()
 
 	if(next_item_found)
 	{
-		if(closed && poly_first_found)
+		if(closed && m_poly.first_found)
 		{
 			// repeat the first point
 		        DerefACI();
-			AddPolyLinePoint(this, poly_first_x, poly_first_y, poly_first_z, false, 0.0);
+			AddPolyLinePoint(m_poly.first_x, m_poly.first_y, m_poly.first_z, false, 0.0);
 		}
 		return true;
 	}
@@ -1183,14 +1170,14 @@ bool CDxfRead::ReadPolyLine()
 							first_vertex_section_found = true;
 							memcpy(first_vertex, vertex, 3*sizeof(double));
 						}
-						AddPolyLinePoint(this, vertex[0], vertex[1], vertex[2], bulge_found, bulge);
+						AddPolyLinePoint(vertex[0], vertex[1], vertex[2], bulge_found, bulge);
 						break;
 					}
 				}
 				if (! strcmp(m_str,"SEQEND"))
 				{
                     if(closed && first_vertex_section_found) {
-                        AddPolyLinePoint(this, first_vertex[0], first_vertex[1], first_vertex[2], 0, 0);
+                        AddPolyLinePoint(first_vertex[0], first_vertex[1], first_vertex[2], 0, 0);
                     }
 					first_vertex_section_found = false;
 					PolyLineStart();

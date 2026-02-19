@@ -8,16 +8,6 @@
 
 #include <map>
 
-//double CArea::m_accuracy = 0.01;
-//double CArea::m_units = 1.0;
-bool CArea::m_fit_arcs = true;
-double CArea::m_single_area_processing_length = 0.0;
-double CArea::m_processing_done = 0.0;
-bool CArea::m_please_abort = false;
-double CArea::m_MakeOffsets_increment = 0.0;
-double CArea::m_split_processing_length = 0.0;
-bool CArea::m_set_processing_length_in_split = false;
-double CArea::m_after_MakeOffsets_length = 0.0;
 //static const double PI = 3.1415926535897932;
 
 CArea::CArea(const Units &u) : m_units(u) {
@@ -67,7 +57,7 @@ void CArea::GetBox(CBox2D &box) const
 	}
 }
 
-void CArea::Reorder()
+void CArea::Reorder(CAreaProcessingContext *ctx)
 {
 	// curves may have been added with wrong directions
 	// test all kurves to see which one are outsides and which are insides and
@@ -80,9 +70,9 @@ void CArea::Reorder()
 	for(auto &curve : m_curves)
 	{
 		ao.Insert(&curve, m_units);
-		if(m_set_processing_length_in_split)
+		if(ctx && ctx->set_processing_length_in_split)
 		{
-			CArea::m_processing_done += (m_split_processing_length / m_curves.size());
+			ctx->processing_done += (ctx->split_processing_length / m_curves.size());
 		}
 	}
 
@@ -97,61 +87,65 @@ public:
 	ZigZag(const CCurve& Zig, const CCurve& Zag):zig(Zig), zag(Zag){}
 };
 
-static double stepover_for_pocket = 0.0;
-static std::list<ZigZag> zigzag_list_for_zigs;
-static std::list<CCurve> *curve_list_for_zigs = nullptr;
-static bool rightward_for_zigs = true;
-static double sin_angle_for_zigs = 0.0;
-static double cos_angle_for_zigs = 0.0;
-static double sin_minus_angle_for_zigs = 0.0;
-static double cos_minus_angle_for_zigs = 0.0;
-static double accuracy_for_zigs = 0.0;
-
-static Point rotated_point(const Point &p)
+struct ZigZagState
 {
-	return Point(p.x * cos_angle_for_zigs - p.y * sin_angle_for_zigs, p.x * sin_angle_for_zigs + p.y * cos_angle_for_zigs);
+	double stepover = 0.0;
+	std::list<ZigZag> zigzag_list;
+	std::list<CCurve> *curve_list = nullptr;
+	bool rightward = true;
+	double sin_angle = 0.0;
+	double cos_angle = 0.0;
+	double sin_minus_angle = 0.0;
+	double cos_minus_angle = 0.0;
+	double accuracy = 0.0;
+	std::list< std::list<ZigZag> > reorder_list_list;
+};
+
+static Point rotated_point(const Point &p, const ZigZagState &zz)
+{
+	return Point(p.x * zz.cos_angle - p.y * zz.sin_angle, p.x * zz.sin_angle + p.y * zz.cos_angle);
 }
 
-static Point unrotated_point(const Point &p)
+static Point unrotated_point(const Point &p, const ZigZagState &zz)
 {
-    return Point(p.x * cos_minus_angle_for_zigs - p.y * sin_minus_angle_for_zigs, p.x * sin_minus_angle_for_zigs + p.y * cos_minus_angle_for_zigs);
+    return Point(p.x * zz.cos_minus_angle - p.y * zz.sin_minus_angle, p.x * zz.sin_minus_angle + p.y * zz.cos_minus_angle);
 }
 
-static CVertex rotated_vertex(const CVertex &v)
-{
-	if(v.m_type)
-	{
-            // XXX: deal w/ CCW vs CW (?)
-		return CVertex(v.m_type, rotated_point(v.m_p), rotated_point(v.m_c));
-	}
-    return CVertex(v.m_type, rotated_point(v.m_p), Point(0, 0));
-}
-
-static CVertex unrotated_vertex(const CVertex &v)
+static CVertex rotated_vertex(const CVertex &v, const ZigZagState &zz)
 {
 	if(v.m_type)
 	{
             // XXX: deal w/ CCW vs CW (?)
-		return CVertex(v.m_type, unrotated_point(v.m_p), unrotated_point(v.m_c));
+		return CVertex(v.m_type, rotated_point(v.m_p, zz), rotated_point(v.m_c, zz));
 	}
-	return CVertex(v.m_type, unrotated_point(v.m_p), Point(0, 0));
+    return CVertex(v.m_type, rotated_point(v.m_p, zz), Point(0, 0));
 }
 
-static void rotate_area(CArea &a)
+static CVertex unrotated_vertex(const CVertex &v, const ZigZagState &zz)
+{
+	if(v.m_type)
+	{
+            // XXX: deal w/ CCW vs CW (?)
+		return CVertex(v.m_type, unrotated_point(v.m_p, zz), unrotated_point(v.m_c, zz));
+	}
+	return CVertex(v.m_type, unrotated_point(v.m_p, zz), Point(0, 0));
+}
+
+static void rotate_area(CArea &a, const ZigZagState &zz)
 {
 	for(auto &curve : a.m_curves)
 	{
 		for(auto &vt : curve.m_vertices)
 		{
-			vt = rotated_vertex(vt);
+			vt = rotated_vertex(vt, zz);
 		}
 	}
 }
 
-void test_y_point(int i, const Point& p, Point& best_p, bool &found, int &best_index, double y, bool left_not_right)
+static void test_y_point(int i, const Point& p, Point& best_p, bool &found, int &best_index, double y, bool left_not_right, const ZigZagState &zz)
 {
 	// only consider points at y
-	if(fabs(p.y - y) < 2.0 * accuracy_for_zigs)
+	if(fabs(p.y - y) < 2.0 * zz.accuracy)
 	{
 		if(found)
 		{
@@ -184,11 +178,11 @@ void test_y_point(int i, const Point& p, Point& best_p, bool &found, int &best_i
 	}
 }
 
-static void make_zig_curve(const CCurve& input_curve, double y0, double y)
+static void make_zig_curve(const CCurve& input_curve, double y0, double y, ZigZagState &zz)
 {
 	CCurve curve(input_curve);
 
-	if(rightward_for_zigs)
+	if(zz.rightward)
 	{
 		if(curve.IsClockwise())
 			curve.Reverse();
@@ -213,9 +207,9 @@ static void make_zig_curve(const CCurve& input_curve, double y0, double y)
 	int i =0;
 	for(const auto &vertex : curve.m_vertices)
 	{
-		test_y_point(i, vertex.m_p, top_right, top_right_found, top_right_index, y, !rightward_for_zigs);
-		test_y_point(i, vertex.m_p, top_left, top_left_found, top_left_index, y, rightward_for_zigs);
-		test_y_point(i, vertex.m_p, bottom_left, bottom_left_found, bottom_left_index, y0, rightward_for_zigs);
+		test_y_point(i, vertex.m_p, top_right, top_right_found, top_right_index, y, !zz.rightward, zz);
+		test_y_point(i, vertex.m_p, top_left, top_left_found, top_left_index, y, zz.rightward, zz);
+		test_y_point(i, vertex.m_p, bottom_left, bottom_left_found, bottom_left_index, y0, zz.rightward, zz);
 		i++;
 	}
 
@@ -263,7 +257,7 @@ static void make_zig_curve(const CCurve& input_curve, double y0, double y)
 
 			if(zig_finished)
 			{
-				zag.m_vertices.push_back(unrotated_vertex(vertex));
+				zag.m_vertices.push_back(unrotated_vertex(vertex, zz));
 				if(v_index == zag_end_index)
 				{
 					zag_finished = true;
@@ -272,7 +266,7 @@ static void make_zig_curve(const CCurve& input_curve, double y0, double y)
 			}
 			else if(zig_started)
 			{
-				zig.m_vertices.push_back(unrotated_vertex(vertex));
+				zig.m_vertices.push_back(unrotated_vertex(vertex, zz));
 				if(v_index == end_index)
 				{
 					zig_finished = true;
@@ -281,14 +275,14 @@ static void make_zig_curve(const CCurve& input_curve, double y0, double y)
 						zag_finished = true;
 						break;
 					}
-					zag.m_vertices.push_back(unrotated_vertex(vertex));
+					zag.m_vertices.push_back(unrotated_vertex(vertex, zz));
 				}
 			}
 			else
 			{
 				if(v_index == start_index)
 				{
-					zig.m_vertices.push_back(unrotated_vertex(vertex));
+					zig.m_vertices.push_back(unrotated_vertex(vertex, zz));
 					zig_started = true;
 				}
 			}
@@ -297,20 +291,18 @@ static void make_zig_curve(const CCurve& input_curve, double y0, double y)
 	}
 
     if(zig_finished)
-		zigzag_list_for_zigs.push_back(ZigZag(zig, zag));
+		zz.zigzag_list.push_back(ZigZag(zig, zag));
 }
 
-void make_zig(const CArea &a, double y0, double y)
+static void make_zig(const CArea &a, double y0, double y, ZigZagState &zz)
 {
 	for(const auto &curve : a.m_curves)
 	{
-		make_zig_curve(curve, y0, y);
+		make_zig_curve(curve, y0, y, zz);
 	}
 }
 
-std::list< std::list<ZigZag> > reorder_zig_list_list;
-
-void add_reorder_zig(ZigZag &zigzag)
+static void add_reorder_zig(ZigZag &zigzag, ZigZagState &zz)
 {
     // look in existing lists
 
@@ -319,7 +311,7 @@ void add_reorder_zig(ZigZag &zigzag)
 	{
 		const Point& zag_e = zigzag.zag.m_vertices.front().m_p;
 		bool zag_removed = false;
-		for(auto &zigzag_list : reorder_zig_list_list)
+		for(auto &zigzag_list : zz.reorder_list_list)
 		{
 			if(zag_removed) break;
 			for(const auto &z : zigzag_list)
@@ -328,7 +320,7 @@ void add_reorder_zig(ZigZag &zigzag)
 				for(const auto &v : z.zig.m_vertices)
 				{
 					if(zag_removed) break;
-					if((fabs(zag_e.x - v.m_p.x) < (2.0 * accuracy_for_zigs)) && (fabs(zag_e.y - v.m_p.y) < (2.0 * accuracy_for_zigs)))
+					if((fabs(zag_e.x - v.m_p.x) < (2.0 * zz.accuracy)) && (fabs(zag_e.y - v.m_p.y) < (2.0 * zz.accuracy)))
 					{
 						// remove zag from zigzag
 						zigzag.zag.m_vertices.clear();
@@ -341,11 +333,11 @@ void add_reorder_zig(ZigZag &zigzag)
 
 	// see if the zigzag can join the end of an existing list
 	const Point& zig_s = zigzag.zig.m_vertices.front().m_p;
-	for(auto &zigzag_list : reorder_zig_list_list)
+	for(auto &zigzag_list : zz.reorder_list_list)
 	{
 		const ZigZag& last_zigzag = zigzag_list.back();
         const Point& e = last_zigzag.zig.m_vertices.back().m_p;
-        if((fabs(zig_s.x - e.x) < (2.0 * accuracy_for_zigs)) && (fabs(zig_s.y - e.y) < (2.0 * accuracy_for_zigs)))
+        if((fabs(zig_s.x - e.x) < (2.0 * zz.accuracy)) && (fabs(zig_s.y - e.y) < (2.0 * zz.accuracy)))
 		{
             zigzag_list.push_back(zigzag);
 			return;
@@ -355,23 +347,23 @@ void add_reorder_zig(ZigZag &zigzag)
     // else add a new list
     std::list<ZigZag> zigzag_list;
     zigzag_list.push_back(zigzag);
-    reorder_zig_list_list.push_back(zigzag_list);
+    zz.reorder_list_list.push_back(zigzag_list);
 }
 
-void reorder_zigs()
+static void reorder_zigs(ZigZagState &zz)
 {
-	for(auto &zigzag : zigzag_list_for_zigs)
+	for(auto &zigzag : zz.zigzag_list)
 	{
-        add_reorder_zig(zigzag);
+        add_reorder_zig(zigzag, zz);
 	}
 
-	zigzag_list_for_zigs.clear();
+	zz.zigzag_list.clear();
 
-	for(auto &zigzag_list : reorder_zig_list_list)
+	for(auto &zigzag_list : zz.reorder_list_list)
 	{
 		if(zigzag_list.size() == 0)continue;
 
-		curve_list_for_zigs->push_back(CCurve());
+		zz.curve_list->push_back(CCurve());
 		bool first_zig = true;
 		for(auto It = zigzag_list.begin(); It != zigzag_list.end();)
 		{
@@ -385,7 +377,7 @@ void reorder_zigs()
 					continue; // only add the first vertex if doing the first zig
 				}
 				first_vertex = false;
-				curve_list_for_zigs->back().m_vertices.push_back(v);
+				zz.curve_list->back().m_vertices.push_back(v);
 			}
 
 			It++;
@@ -399,27 +391,27 @@ void reorder_zigs()
 						first_zag_vertex = false;
 						continue; // don't add the first vertex of the zag
 					}
-					curve_list_for_zigs->back().m_vertices.push_back(v);
+					zz.curve_list->back().m_vertices.push_back(v);
 				}
 			}
 			first_zig = false;
 		}
 	}
-	reorder_zig_list_list.clear();
+	zz.reorder_list_list.clear();
 }
 
-static void zigzag(const CArea &input_a)
+static void zigzag(const CArea &input_a, ZigZagState &zz, CAreaProcessingContext *ctx)
 {
 	if(input_a.m_curves.size() == 0)
 	{
-		CArea::m_processing_done += CArea::m_single_area_processing_length;
+		if(ctx) ctx->processing_done += ctx->single_area_processing_length;
 		return;
 	}
 
-    accuracy_for_zigs = input_a.m_units.m_accuracy;
+    zz.accuracy = input_a.m_units.m_accuracy;
 
 	CArea a(input_a);
-    rotate_area(a);
+    rotate_area(a, zz);
 
     CBox2D b;
 	a.GetBox(b);
@@ -428,19 +420,19 @@ static void zigzag(const CArea &input_a)
     double x1 = b.MaxX() + 1.0;
 
     double height = b.MaxY() - b.MinY();
-    int num_steps = int(height / stepover_for_pocket + 1);
-    double y = b.MinY();// + 0.1 * one_over_units;
+    int num_steps = int(height / zz.stepover + 1);
+    double y = b.MinY();
     Point null_point(0, 0);
-	rightward_for_zigs = true;
+	zz.rightward = true;
 
-	if(CArea::m_please_abort)return;
+	if(ctx && ctx->please_abort)return;
 
-	double step_percent_increment = 0.8 * CArea::m_single_area_processing_length / num_steps;
+	double step_percent_increment = (ctx ? 0.8 * ctx->single_area_processing_length / num_steps : 0.0);
 
 	for(int i = 0; i<num_steps; i++)
 	{
 		double y0 = y;
-		y = y + stepover_for_pocket;
+		y = y + zz.stepover;
 		Point p0(x0, y0);
 		Point p1(x0, y);
 		Point p2(x1, y);
@@ -454,26 +446,32 @@ static void zigzag(const CArea &input_a)
 		CArea a2(input_a.m_units);
 		a2.m_curves.push_back(c);
 		a2.Intersect(a);
-		make_zig(a2, y0, y);
-		rightward_for_zigs = !rightward_for_zigs;
-		if(CArea::m_please_abort)return;
-		CArea::m_processing_done += step_percent_increment;
+		make_zig(a2, y0, y, zz);
+		zz.rightward = !zz.rightward;
+		if(ctx && ctx->please_abort)return;
+		if(ctx) ctx->processing_done += step_percent_increment;
 	}
 
-	reorder_zigs();
-	CArea::m_processing_done += 0.2 * CArea::m_single_area_processing_length;
+	reorder_zigs(zz);
+	if(ctx) ctx->processing_done += 0.2 * ctx->single_area_processing_length;
 }
 
-void CArea::SplitAndMakePocketToolpath(std::list<CCurve> &curve_list, const CAreaPocketParams &params)const
+void CArea::SplitAndMakePocketToolpath(std::list<CCurve> &curve_list, const CAreaPocketParams &params, CAreaProcessingContext *ctx)const
 {
-	CArea::m_processing_done = 0.0;
+	if(ctx) ctx->processing_done = 0.0;
 
 	std::list<CArea> areas;
-	m_split_processing_length = 50.0; // jump to 50 percent after split
-	m_set_processing_length_in_split = true;
-	Split(areas);
-	m_set_processing_length_in_split = false;
-	CArea::m_processing_done = m_split_processing_length;
+	if(ctx)
+	{
+		ctx->split_processing_length = 50.0; // jump to 50 percent after split
+		ctx->set_processing_length_in_split = true;
+	}
+	Split(areas, ctx);
+	if(ctx)
+	{
+		ctx->set_processing_length_in_split = false;
+		ctx->processing_done = ctx->split_processing_length;
+	}
 
 	if(areas.size() == 0)return;
 
@@ -481,19 +479,20 @@ void CArea::SplitAndMakePocketToolpath(std::list<CCurve> &curve_list, const CAre
 
 	for(auto &ar : areas)
 	{
-		CArea::m_single_area_processing_length = single_area_length;
-		ar.MakePocketToolpath(curve_list, params);
+		if(ctx) ctx->single_area_processing_length = single_area_length;
+		ar.MakePocketToolpath(curve_list, params, ctx);
 	}
 }
 
-void CArea::MakePocketToolpath(std::list<CCurve> &curve_list, const CAreaPocketParams &params)const
+void CArea::MakePocketToolpath(std::list<CCurve> &curve_list, const CAreaPocketParams &params, CAreaProcessingContext *ctx)const
 {
+	ZigZagState zz;
 	double radians_angle = params.zig_angle * PI / 180;
-	sin_angle_for_zigs = sin(-radians_angle);
-	cos_angle_for_zigs = cos(-radians_angle);
-	sin_minus_angle_for_zigs = sin(radians_angle);
-	cos_minus_angle_for_zigs = cos(radians_angle);
-	stepover_for_pocket = params.stepover;
+	zz.sin_angle = sin(-radians_angle);
+	zz.cos_angle = cos(-radians_angle);
+	zz.sin_minus_angle = sin(radians_angle);
+	zz.cos_minus_angle = cos(radians_angle);
+	zz.stepover = params.stepover;
 
 	CArea a_offset = *this;
 	double current_offset = params.tool_radius + params.extra_offset;
@@ -502,25 +501,25 @@ void CArea::MakePocketToolpath(std::list<CCurve> &curve_list, const CAreaPocketP
 
 	if(params.mode == PocketMode::ZigZag || params.mode == PocketMode::ZigZagThenSingleOffset)
 	{
-		curve_list_for_zigs = &curve_list;
-		zigzag(a_offset);
+		zz.curve_list = &curve_list;
+		zigzag(a_offset, zz, ctx);
 	}
 	else if(params.mode == PocketMode::Spiral)
 	{
 		std::list<CArea> areas;
-		a_offset.Split(areas);
-		if(CArea::m_please_abort)return;
+		a_offset.Split(areas, ctx);
+		if(ctx && ctx->please_abort)return;
 		if(areas.size() == 0)
 		{
-			CArea::m_processing_done += CArea::m_single_area_processing_length;
+			if(ctx) ctx->processing_done += ctx->single_area_processing_length;
 			return;
 		}
 
-		CArea::m_single_area_processing_length /= areas.size();
+		if(ctx) ctx->single_area_processing_length /= areas.size();
 
 		for(auto &a2 : areas)
 		{
-			a2.MakeOnePocketCurve(curve_list, params);
+			a2.MakeOnePocketCurve(curve_list, params, ctx);
 		}
 	}
 
@@ -534,7 +533,7 @@ void CArea::MakePocketToolpath(std::list<CCurve> &curve_list, const CAreaPocketP
 	}
 }
 
-void CArea::Split(std::list<CArea> &areas)const
+void CArea::Split(std::list<CArea> &areas, CAreaProcessingContext *ctx)const
 {
 	if(IsBoolean())
 	{
@@ -547,9 +546,9 @@ void CArea::Split(std::list<CArea> &areas)const
 	else
 	{
 		CArea a = *this;
-		a.Reorder();
+		a.Reorder(ctx);
 
-		if(CArea::m_please_abort)return;
+		if(ctx && ctx->please_abort)return;
 
 		for(const auto &curve : a.m_curves)
 		{

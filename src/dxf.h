@@ -104,6 +104,19 @@ private:
 	char m_block_name[1024];
 	bool m_ignore_errors;
 
+	struct PolyState {
+		bool prev_found = false;
+		double prev_x = 0.0;
+		double prev_y = 0.0;
+		double prev_z = 0.0;
+		bool prev_bulge_found = false;
+		double prev_bulge = 0.0;
+		bool first_found = false;
+		double first_x = 0.0;
+		double first_y = 0.0;
+		double first_z = 0.0;
+	};
+	PolyState m_poly;
 
 	typedef std::map< std::string,Aci_t > LayerAciMap_t;
 	LayerAciMap_t m_layer_aci;  // layer names -> layer color aci map
@@ -124,6 +137,8 @@ private:
 	void OnReadCircle(const double* c, double radius);
     void OnReadEllipse(const double* c, const double* m, double ratio, double start_angle, double end_angle);
 	bool ReadInsert();
+	void AddPolyLinePoint(double x, double y, double z, bool bulge_found, double bulge);
+	void PolyLineStart();
 
 	void get_line();
 	void put_line(const char *value);
