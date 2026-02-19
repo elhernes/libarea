@@ -12,7 +12,7 @@ using TPolyPolygon = Paths;
 bool CArea::IsBoolean(){ return false; }
 
 //static const double PI = 3.1415926535897932;
-static double Clipper4Factor = 10000.0;
+static constexpr double Clipper4Factor = 1000000.0;
 
 class DoubleAreaPoint
 {
@@ -35,7 +35,7 @@ static void AddVertex(const CVertex& vertex, const CVertex* prev_vertex, const U
 {
 	if(vertex.m_type == 0 || prev_vertex == nullptr)
 	{
-		AddPoint(DoubleAreaPoint(vertex.m_p.x * u.m_scale, vertex.m_p.y * u.m_scale));
+		AddPoint(DoubleAreaPoint(vertex.m_p.x, vertex.m_p.y));
 	}
 	else
 	{
@@ -46,13 +46,13 @@ static void AddVertex(const CVertex& vertex, const CVertex* prev_vertex, const U
 		int i;
 		double ang1,ang2,phit;
 
-		dx = (prev_vertex->m_p.x - vertex.m_c.x) * u.m_scale;
-		dy = (prev_vertex->m_p.y - vertex.m_c.y) * u.m_scale;
+		dx = prev_vertex->m_p.x - vertex.m_c.x;
+		dy = prev_vertex->m_p.y - vertex.m_c.y;
 
 		ang1=atan2(dy,dx);
 		if (ang1<0) ang1+=2.0*PI;
-		dx = (vertex.m_p.x - vertex.m_c.x) * u.m_scale;
-		dy = (vertex.m_p.y - vertex.m_c.y) * u.m_scale;
+		dx = vertex.m_p.x - vertex.m_c.x;
+		dy = vertex.m_p.y - vertex.m_c.y;
 		ang2=atan2(dy,dx);
 		if (ang2<0) ang2+=2.0*PI;
 
@@ -88,17 +88,17 @@ static void AddVertex(const CVertex& vertex, const CVertex* prev_vertex, const U
 
 		dphi=phit/(Segments);
 
-		double px = prev_vertex->m_p.x * u.m_scale;
-		double py = prev_vertex->m_p.y * u.m_scale;
+		double px = prev_vertex->m_p.x;
+		double py = prev_vertex->m_p.y;
 
 		for (i=1; i<=Segments; i++)
 		{
-			dx = px - vertex.m_c.x * u.m_scale;
-			dy = py - vertex.m_c.y * u.m_scale;
+			dx = px - vertex.m_c.x;
+			dy = py - vertex.m_c.y;
 			phi=atan2(dy,dx);
 
-			double nx = vertex.m_c.x * u.m_scale + radius * cos(phi-dphi);
-			double ny = vertex.m_c.y * u.m_scale + radius * sin(phi-dphi);
+			double nx = vertex.m_c.x + radius * cos(phi-dphi);
+			double ny = vertex.m_c.y + radius * sin(phi-dphi);
 
 			AddPoint(DoubleAreaPoint(nx, ny));
 
@@ -127,8 +127,8 @@ static void MakeLoop(const DoubleAreaPoint &pt0, const DoubleAreaPoint &pt1, con
 	CVertex v1(arc_dir, p1 + right1 * radius, p1);
 	CVertex v2(CVertex::vt_line, p2 + right1 * radius, Point(0, 0));
 
-	AddVertex(v1, &v0, Units(1.0, 0.01));
-	AddVertex(v2, &v1, Units(1.0, 0.01));
+	AddVertex(v1, &v0, Units(0.01));
+	AddVertex(v2, &v1, Units(0.01));
 }
 
 static void OffsetWithLoops(const TPolyPolygon &pp, TPolyPolygon &pp_new, double inwards_value)
@@ -231,7 +231,7 @@ static void MakeObround(const Point &pt0, const CVertex &vt1, double radius)
 	CVertex v3(reverseArcType(vt1.m_type), pt0 + right0 * -radius, vt1.m_c);
 	CVertex v4(CVertex::vt_ccw_arc, pt0 + right0 * radius, pt0);
 
-        Units u(1.0, 0.01);
+        Units u(0.01);
 
 	AddVertex(v0, nullptr, u);
 	AddVertex(v1, &v0, u);
@@ -350,7 +350,7 @@ static void SetFromResult( CCurve& curve, const TPolygon& p, const Units &u, boo
 	{
 		const IntPoint &pt = p[j];
 		DoubleAreaPoint dp(pt);
-		CVertex vertex(CVertex::vt_line, Point(dp.X / u.m_scale, dp.Y / u.m_scale), Point(0.0, 0.0));
+		CVertex vertex(CVertex::vt_line, Point(dp.X, dp.Y), Point(0.0, 0.0));
 		if(reverse)curve.m_vertices.push_front(vertex);
 		else curve.m_vertices.push_back(vertex);
 	}
@@ -454,7 +454,7 @@ void CArea::Offset(double inwards_value)
 {
 	TPolyPolygon pp, pp2;
 	MakePolyPoly(*this, pp, m_units, false);
-	OffsetWithLoops(pp, pp2, inwards_value * m_units.m_scale);
+	OffsetWithLoops(pp, pp2, inwards_value);
 	SetFromResult(*this, pp2, m_units, false);
 	this->Reorder();
 }
@@ -462,7 +462,7 @@ void CArea::Offset(double inwards_value)
 void CArea::Thicken(double value)
 {
 	TPolyPolygon pp;
-	OffsetSpansWithObrounds(*this, pp, value * m_units.m_scale);
+	OffsetSpansWithObrounds(*this, pp, value);
 	SetFromResult(*this, pp, m_units, false);
 	this->Reorder();
 }
@@ -481,7 +481,7 @@ void UnFitArcs(CCurve &curve, const Units &u)
 
 	for(auto &pt : pts_for_AddVertex)
 	{
-		CVertex vertex(CVertex::vt_line, Point(pt.X / u.m_scale, pt.Y / u.m_scale), Point(0.0, 0.0));
+		CVertex vertex(CVertex::vt_line, Point(pt.X, pt.Y), Point(0.0, 0.0));
 		curve.m_vertices.push_back(vertex);
 	}
 }

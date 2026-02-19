@@ -217,7 +217,7 @@ main(int ac, char **av) {
   p.Transform(m);
   printf("p(x=%f, y=%f)\n", p.x, p.y);
 
-  Units u(25.4, 0.001);
+  Units u(0.001);
   std::list<CCurve> toolPath;
 
   GCodeWriter gcode("pocket.nc", 0);
@@ -346,7 +346,7 @@ main(int ac, char **av) {
                    0., // zz_angle
                    0.45, // xy-pct
                    poly_c,
-                   Units(25.4, 0.001));
+                   Units(0.001));
 
     fprintf(stderr, "curves: %lu\n", toolPath.size());
 

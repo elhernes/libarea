@@ -210,7 +210,6 @@ static const std::vector<ParameterValidator> skCutProps = {
   { "tool_diameter",  ParameterValidator::isNumber },
   { "mode", [](const Napi::Value &v, std::string &err)->bool { return ParameterValidator::isEnum(v,skModeValues, err); } },
   { "zz_angle", ParameterValidator::isNumber },
-  { "units_scale", ParameterValidator::isNumber },
   { "accuracy", ParameterValidator::isNumber }
 };
 
@@ -319,7 +318,6 @@ napi_circle_pocket(const Napi::CallbackInfo& info) {
     double tool_diameter = info[0].As<Napi::Object>().Get("tool_diameter").ToNumber().DoubleValue();
     PocketMode pm = pocket_mode(static_cast<std::string>(info[0].As<Napi::Object>().Get("mode").ToString()));
     double zz_angle = info[0].As<Napi::Object>().Get("zz_angle").ToNumber().DoubleValue();
-    double units_scale = info[0].As<Napi::Object>().Get("units_scale").ToNumber().DoubleValue();
     double accuracy = info[0].As<Napi::Object>().Get("accuracy").ToNumber().DoubleValue();
 
     bool finish  = info[1].As<Napi::Object>().Get("finish").ToBoolean().Value();
@@ -329,7 +327,7 @@ napi_circle_pocket(const Napi::CallbackInfo& info) {
 
     Napi::Array ar = info[1].As<Napi::Object>().Get("position").As<Napi::Array>();
     int n = ar.Length();
-    Units units(units_scale, accuracy);
+    Units units(accuracy);
     for(unsigned i=0; i<n; i++) {
       Napi::Object ob = ar.Get(i).As<Napi::Object>();
       circle_pocket(toolPath, tool_diameter, pm, zz_angle,
@@ -445,13 +443,12 @@ napi_polygon_pocket(const Napi::CallbackInfo& info) {
       double tool_diameter = info[0].As<Napi::Object>().Get("tool_diameter").ToNumber().DoubleValue();
       PocketMode pm = pocket_mode(static_cast<std::string>(info[0].As<Napi::Object>().Get("mode").ToString()));
       double zz_angle = info[0].As<Napi::Object>().Get("zz_angle").ToNumber().DoubleValue();
-      double units_scale = info[0].As<Napi::Object>().Get("units_scale").ToNumber().DoubleValue();
       double accuracy = info[0].As<Napi::Object>().Get("accuracy").ToNumber().DoubleValue();
 
       double xyPct = info[1].As<Napi::Object>().Get("xyPct").ToNumber().DoubleValue()/100.;
-        
+
       Napi::Array outer = info[1].As<Napi::Object>().Get("outerPath").As<Napi::Array>();
-      Units units(units_scale, accuracy);
+      Units units(accuracy);
 
       CCurve outer_c;
       mk_curve_from_array(outer_c, outer);

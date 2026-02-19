@@ -105,7 +105,7 @@ static double sin_angle_for_zigs = 0.0;
 static double cos_angle_for_zigs = 0.0;
 static double sin_minus_angle_for_zigs = 0.0;
 static double cos_minus_angle_for_zigs = 0.0;
-static double one_over_units = 0.0;
+static double accuracy_for_zigs = 0.0;
 
 static Point rotated_point(const Point &p)
 {
@@ -151,7 +151,7 @@ static void rotate_area(CArea &a)
 void test_y_point(int i, const Point& p, Point& best_p, bool &found, int &best_index, double y, bool left_not_right)
 {
 	// only consider points at y
-	if(fabs(p.y - y) < 0.002 * one_over_units)
+	if(fabs(p.y - y) < 2.0 * accuracy_for_zigs)
 	{
 		if(found)
 		{
@@ -328,7 +328,7 @@ void add_reorder_zig(ZigZag &zigzag)
 				for(const auto &v : z.zig.m_vertices)
 				{
 					if(zag_removed) break;
-					if((fabs(zag_e.x - v.m_p.x) < (0.002 * one_over_units)) && (fabs(zag_e.y - v.m_p.y) < (0.002 * one_over_units)))
+					if((fabs(zag_e.x - v.m_p.x) < (2.0 * accuracy_for_zigs)) && (fabs(zag_e.y - v.m_p.y) < (2.0 * accuracy_for_zigs)))
 					{
 						// remove zag from zigzag
 						zigzag.zag.m_vertices.clear();
@@ -345,7 +345,7 @@ void add_reorder_zig(ZigZag &zigzag)
 	{
 		const ZigZag& last_zigzag = zigzag_list.back();
         const Point& e = last_zigzag.zig.m_vertices.back().m_p;
-        if((fabs(zig_s.x - e.x) < (0.002 * one_over_units)) && (fabs(zig_s.y - e.y) < (0.002 * one_over_units)))
+        if((fabs(zig_s.x - e.x) < (2.0 * accuracy_for_zigs)) && (fabs(zig_s.y - e.y) < (2.0 * accuracy_for_zigs)))
 		{
             zigzag_list.push_back(zigzag);
 			return;
@@ -416,7 +416,7 @@ static void zigzag(const CArea &input_a)
 		return;
 	}
 
-    one_over_units = 1 / input_a.m_units.m_scale;
+    accuracy_for_zigs = input_a.m_units.m_accuracy;
 
 	CArea a(input_a);
     rotate_area(a);
@@ -582,9 +582,9 @@ double CArea::GetArea(bool always_add)const
 
 OverlapType GetOverlapType(const CCurve& c1, const CCurve& c2)
 {
-    CArea a1(Units(1.0, 0.001));
+    CArea a1(Units(0.001));
 	a1.m_curves.push_back(c1);
-	CArea a2(Units(1.0, 0.001));
+	CArea a2(Units(0.001));
 	a2.m_curves.push_back(c2);
 
 	return GetOverlapType(a1, a2);

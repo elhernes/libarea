@@ -128,7 +128,7 @@ void GetCurveItem::GetCurve(CCurve& output, const Units &u)
 			for(auto &pair : ordered_inners)
 			{
 				CurveTree& inner = *(pair.second);
-				if(inner.point_on_parent.dist(back().m_p) > 0.01/u.m_scale)
+				if(inner.point_on_parent.dist(back().m_p) > 0.01)
 				{
 					output.m_vertices.insert(this->EndIt, CVertex(vertex.m_type, inner.point_on_parent, vertex.m_c));
 				}

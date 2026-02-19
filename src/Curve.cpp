@@ -96,9 +96,9 @@ bool CCurve::CheckForArc(const CVertex& prev_vt, std::list<const CVertex*>& migh
 	const CVertex* current_vt = &prev_vt;
 	for(auto *vt : might_be_an_arc)
 	{
-		if(!c.PointIsOn(vt->m_p, u.m_accuracy / u.m_scale * 0.1))
+		if(!c.PointIsOn(vt->m_p, u.m_accuracy * 0.1))
 			return false;
-		if(!c.LineIsOn(current_vt->m_p, vt->m_p, u.m_accuracy * 2.0 / u.m_scale))
+		if(!c.LineIsOn(current_vt->m_p, vt->m_p, u.m_accuracy * 2.0))
 			return false;
 		current_vt = vt;
 	}
@@ -284,7 +284,7 @@ void CCurve::UnFitArcs(const Units &u)
 	{
 		if(vertex.m_type == 0 || prev_vertex == nullptr)
 		{
-			new_pts.push_back(vertex.m_p * u.m_scale);
+			new_pts.push_back(vertex.m_p);
 		}
 		else
 		{
@@ -295,13 +295,13 @@ void CCurve::UnFitArcs(const Units &u)
 				int i;
 				double ang1,ang2,phit;
 
-				dx = (prev_vertex->m_p.x - vertex.m_c.x) * u.m_scale;
-				dy = (prev_vertex->m_p.y - vertex.m_c.y) * u.m_scale;
+				dx = prev_vertex->m_p.x - vertex.m_c.x;
+				dy = prev_vertex->m_p.y - vertex.m_c.y;
 
 				ang1=atan2(dy,dx);
 				if (ang1<0) ang1+=2.0*PI;
-				dx = (vertex.m_p.x - vertex.m_c.x) * u.m_scale;
-				dy = (vertex.m_p.y - vertex.m_c.y) * u.m_scale;
+				dx = vertex.m_p.x - vertex.m_c.x;
+				dy = vertex.m_p.y - vertex.m_c.y;
 				ang2=atan2(dy,dx);
 				if (ang2<0) ang2+=2.0*PI;
 
@@ -337,17 +337,17 @@ void CCurve::UnFitArcs(const Units &u)
 
 				dphi=phit/(Segments);
 
-				double px = prev_vertex->m_p.x * u.m_scale;
-				double py = prev_vertex->m_p.y * u.m_scale;
+				double px = prev_vertex->m_p.x;
+				double py = prev_vertex->m_p.y;
 
 				for (i=1; i<=Segments; i++)
 				{
-					dx = px - vertex.m_c.x * u.m_scale;
-					dy = py - vertex.m_c.y * u.m_scale;
+					dx = px - vertex.m_c.x;
+					dy = py - vertex.m_c.y;
 					phi=atan2(dy,dx);
 
-					double nx = vertex.m_c.x * u.m_scale + radius * cos(phi-dphi);
-					double ny = vertex.m_c.y * u.m_scale + radius * sin(phi-dphi);
+					double nx = vertex.m_c.x + radius * cos(phi-dphi);
+					double ny = vertex.m_c.y + radius * sin(phi-dphi);
 
 					new_pts.push_back(Point(nx, ny));
 
@@ -363,7 +363,7 @@ void CCurve::UnFitArcs(const Units &u)
 
 	for(auto &pt : new_pts)
 	{
-		CVertex vertex(CVertex::vt_line, pt / u.m_scale, Point(0.0, 0.0));
+		CVertex vertex(CVertex::vt_line, pt, Point(0.0, 0.0));
 		m_vertices.push_back(vertex);
 	}
 }
