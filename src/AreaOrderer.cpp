@@ -5,13 +5,11 @@
 #include "AreaOrderer.h"
 #include "Area.h"
 
-CAreaOrderer* CInnerCurves::area_orderer = NULL;
+CAreaOrderer* CInnerCurves::area_orderer = nullptr;
 
 CInnerCurves::CInnerCurves(CInnerCurves* pOuter, const CCurve* curve)
+	: m_pOuter(pOuter), m_curve(curve), m_unite_area(nullptr)
 {
-	m_pOuter = pOuter;
-	m_curve = curve;
-	m_unite_area = NULL;
 }
 
 CInnerCurves::~CInnerCurves()
@@ -31,10 +29,8 @@ void CInnerCurves::Insert(const CCurve* pcurve, const Units &u)
 	std::list<CInnerCurves*> crossing_these;
 
 	// check all inner curves
-	for(std::set<CInnerCurves*>::iterator It = m_inner_curves.begin(); It != m_inner_curves.end(); It++)
+	for(auto *c : m_inner_curves)
 	{
-		CInnerCurves* c = *It;
-
 		switch(GetOverlapType(*pcurve, *(c->m_curve)))
 		{
 		case eOutside:
@@ -59,19 +55,17 @@ void CInnerCurves::Insert(const CCurve* pcurve, const Units &u)
 	CInnerCurves* new_item = new CInnerCurves(this, pcurve);
 	this->m_inner_curves.insert(new_item);
 
-	for(std::list<CInnerCurves*>::iterator It = outside_of_these.begin(); It != outside_of_these.end(); It++)
+	for(auto *c : outside_of_these)
 	{
 		// move items
-		CInnerCurves* c = *It;
 		c->m_pOuter = new_item;
 		new_item->m_inner_curves.insert(c);
 		this->m_inner_curves.erase(c);
 	}
 
-	for(std::list<CInnerCurves*>::iterator It = crossing_these.begin(); It != crossing_these.end(); It++)
+	for(auto *c : crossing_these)
 	{
 		// unite these
-		CInnerCurves* c = *It;
 		new_item->Unite(c, u);
 		this->m_inner_curves.erase(c);
 	}
@@ -87,9 +81,8 @@ void CInnerCurves::GetArea(CArea &area, bool outside, bool use_curve)const
 
 	std::list<const CInnerCurves*> do_after;
 
-	for(std::set<CInnerCurves*>::const_iterator It = m_inner_curves.begin(); It != m_inner_curves.end(); It++)
+	for(auto *c : m_inner_curves)
 	{
-		const CInnerCurves* c = *It;
 		area.m_curves.push_back(*c->m_curve);
 		if(!outside)area.m_curves.back().Reverse();
 
@@ -97,9 +90,8 @@ void CInnerCurves::GetArea(CArea &area, bool outside, bool use_curve)const
 		else do_after.push_back(c);
 	}
 
-	for(std::list<const CInnerCurves*>::iterator It = do_after.begin(); It != do_after.end(); It++)
+	for(auto *c : do_after)
 	{
-		const CInnerCurves* c = *It;
 		c->GetArea(area, !outside, false);
 	}
 }
@@ -117,11 +109,14 @@ void CInnerCurves::Unite(const CInnerCurves* c, const Units &u)
 
 	m_unite_area->Union(a2);
 	m_unite_area->Reorder();
-	for(std::list<CCurve>::iterator It = m_unite_area->m_curves.begin(); It != m_unite_area->m_curves.end(); It++)
+	bool first = true;
+	for(auto &curve : m_unite_area->m_curves)
 	{
-		CCurve &curve = *It;
-		if(It == m_unite_area->m_curves.begin())
+		if(first)
+		{
 			m_curve = &curve;
+			first = false;
+		}
 		else
 		{
 			if(curve.IsClockwise())curve.Reverse();
@@ -132,7 +127,7 @@ void CInnerCurves::Unite(const CInnerCurves* c, const Units &u)
 
 CAreaOrderer::CAreaOrderer()
 {
-	m_top_level = new CInnerCurves(NULL, NULL);
+	m_top_level = new CInnerCurves(nullptr, nullptr);
 }
 
 void CAreaOrderer::Insert(CCurve* pcurve, const Units &u)
@@ -154,4 +149,3 @@ CArea CAreaOrderer::ResultArea(const Units &u)const
     }
     return a;
 }
-

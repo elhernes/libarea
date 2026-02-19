@@ -6,7 +6,7 @@
 
 #include <vector>
 #include <list>
-#include <math.h>
+#include <cmath>
 #include "Point.h"
 #include "Box2D.h"
 
@@ -22,10 +22,6 @@ public:
 };
 
 class CArc;
-
-// ccw arc becomes cw arc
-// cw arc becomes ccw arc
-#define REVERSE_ARC_TYPE(tt) (((tt) == CVertex::vt_ccw_arc) ? CVertex::vt_cw_arc : CVertex::vt_ccw_arc)
 
 class CVertex
 {
@@ -45,6 +41,12 @@ public:
 	CVertex(const Point& p, int user_data = 0);
 };
 
+// ccw arc becomes cw arc
+// cw arc becomes ccw arc
+inline CVertex::Type reverseArcType(CVertex::Type tt) {
+	return (tt == CVertex::vt_ccw_arc) ? CVertex::vt_cw_arc : CVertex::vt_ccw_arc;
+}
+
 class Units;
 
 class Span
@@ -63,11 +65,11 @@ public:
 	Span();
 	Span(const Point& p, const CVertex& v, bool start_span = false):m_start_span(start_span), m_p(p), m_v(v){}
 	Point NearestPoint(const Point& p)const;
-	Point NearestPoint(const Span& p, const Units &u, double *d = NULL)const;
-	void GetBox(CBox2D &box);
+	Point NearestPoint(const Span& p, const Units &u, double *d = nullptr)const;
+	void GetBox(CBox2D &box) const;
 	double IncludedAngle()const;
 	double GetArea()const;
-	bool On(const Point& p, double* t = NULL)const;
+	bool On(const Point& p, double* t = nullptr)const;
 	Point MidPerim(double d)const;
 	Point MidParam(double param)const;
 	double Length()const;
@@ -92,9 +94,9 @@ public:
 	void FitArcs(const Units &u);
 	void UnFitArcs(const Units &u);
 	Point NearestPoint(const Point& p, const Units &u)const;
-	Point NearestPoint(const CCurve& p, const Units &u, double *d = NULL)const;
-	Point NearestPoint(const Span& p, const Units &u, double *d = NULL)const;
-	void GetBox(CBox2D &box);
+	Point NearestPoint(const CCurve& p, const Units &u, double *d = nullptr)const;
+	Point NearestPoint(const Span& p, const Units &u, double *d = nullptr)const;
+	void GetBox(CBox2D &box) const;
 	void Reverse();
 	double GetArea()const;
 	bool IsClockwise()const{return GetArea()>0;}

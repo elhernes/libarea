@@ -3,8 +3,7 @@
 // This program is released under the BSD license. See the file COPYING for details.
 // repository now moved to github
 
-#ifndef AREA_HEADER
-#define AREA_HEADER
+#pragma once
 
 #include "Curve.h"
 
@@ -26,13 +25,9 @@ struct CAreaPocketParams
 	double zig_angle;
 	bool only_cut_first_offset;
 	CAreaPocketParams(double Tool_radius, double Extra_offset, double Stepover, bool From_center, PocketMode Mode, double Zig_angle)
+		: tool_radius(Tool_radius), extra_offset(Extra_offset), stepover(Stepover),
+		  from_center(From_center), mode(Mode), zig_angle(Zig_angle), only_cut_first_offset(false)
 	{
-		tool_radius = Tool_radius;
-		extra_offset = Extra_offset;
-		stepover = Stepover;
-		from_center = From_center;
-		mode = Mode;
-		zig_angle = Zig_angle;
 	}
 };
 
@@ -70,9 +65,9 @@ public:
 	void Offset(double inwards_value);
 	void Thicken(double value);
 	void FitArcs();
-	size_t num_curves(){return m_curves.size();}
+	size_t num_curves() const {return m_curves.size();}
 	Point NearestPoint(const Point& p)const;
-	void GetBox(CBox2D &box);
+	void GetBox(CBox2D &box) const;
 	void Reorder();
 	void MakePocketToolpath(std::list<CCurve> &toolpath, const CAreaPocketParams &params)const;
 	void SplitAndMakePocketToolpath(std::list<CCurve> &toolpath, const CAreaPocketParams &params)const;
@@ -80,8 +75,8 @@ public:
 	static bool IsBoolean();
 	void Split(std::list<CArea> &m_areas)const;
 	double GetArea(bool always_add = false)const;
-	void SpanIntersections(const Span& span, std::list<Point> &pts)const; 
-	void CurveIntersections(const CCurve& curve, std::list<Point> &pts)const; 
+	void SpanIntersections(const Span& span, std::list<Point> &pts)const;
+	void CurveIntersections(const CCurve& curve, std::list<Point> &pts)const;
 	void InsideCurves(const CCurve& curve, std::list<CCurve> &curves_inside)const;
 };
 
@@ -97,5 +92,3 @@ eOverlapType GetOverlapType(const CCurve& c1, const CCurve& c2);
 eOverlapType GetOverlapType(const CArea& a1, const CArea& a2);
 bool IsInside(const Point& p, const CCurve& c);
 bool IsInside(const Point& p, const CArea& a);
-
-#endif // #define AREA_HEADER

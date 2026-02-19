@@ -6,8 +6,8 @@
 #include "clipper.hpp"
 using namespace ClipperLib;
 
-#define TPolygon Path
-#define TPolyPolygon Paths
+using TPolygon = Path;
+using TPolyPolygon = Paths;
 
 bool CArea::IsBoolean(){ return false; }
 
@@ -20,8 +20,8 @@ public:
 	double X, Y;
 
 	DoubleAreaPoint(double x, double y){X = x; Y = y;}
-	DoubleAreaPoint(const IntPoint& p){X = (double)(p.X) / Clipper4Factor; Y = (double)(p.Y) / Clipper4Factor;}
-	IntPoint int_point(){return IntPoint((long64)(X * Clipper4Factor), (long64)(Y * Clipper4Factor));}
+	DoubleAreaPoint(const IntPoint& p){X = static_cast<double>(p.X) / Clipper4Factor; Y = static_cast<double>(p.Y) / Clipper4Factor;}
+	IntPoint int_point(){return IntPoint(static_cast<long64>(X * Clipper4Factor), static_cast<long64>(Y * Clipper4Factor));}
 };
 
 static std::list<DoubleAreaPoint> pts_for_AddVertex;
@@ -33,7 +33,7 @@ static void AddPoint(const DoubleAreaPoint& p)
 
 static void AddVertex(const CVertex& vertex, const CVertex* prev_vertex, const Units &u)
 {
-	if(vertex.m_type == 0 || prev_vertex == NULL)
+	if(vertex.m_type == 0 || prev_vertex == nullptr)
 	{
 		AddPoint(DoubleAreaPoint(vertex.m_p.x * u.m_scale, vertex.m_p.y * u.m_scale));
 	}
@@ -77,9 +77,9 @@ static void AddVertex(const CVertex& vertex, const CVertex* prev_vertex, const U
 
 		//set the number of segments
 		if (phit > 0)
-			Segments=(int)ceil(phit/dphi);
+			Segments=static_cast<int>(ceil(phit/dphi));
 		else
-			Segments=(int)ceil(-phit/dphi);
+			Segments=static_cast<int>(ceil(-phit/dphi));
 
 		if (Segments < 1)
 			Segments=1;
@@ -177,9 +177,9 @@ static void OffsetWithLoops(const TPolyPolygon &pp, TPolyPolygon &pp_new, double
 
 			TPolygon loopy_polygon;
 			loopy_polygon.reserve(pts_for_AddVertex.size());
-			for(std::list<DoubleAreaPoint>::iterator It = pts_for_AddVertex.begin(); It != pts_for_AddVertex.end(); It++)
+			for(auto &pt : pts_for_AddVertex)
 			{
-				loopy_polygon.push_back(It->int_point());
+				loopy_polygon.push_back(pt.int_point());
 			}
 			c.AddPath(loopy_polygon, ptSubject, true);
 			pts_for_AddVertex.clear();
@@ -228,12 +228,12 @@ static void MakeObround(const Point &pt0, const CVertex &vt1, double radius)
 	CVertex v0(pt0 + right0 * radius);
 	CVertex v1(vt1.m_type, vt1.m_p + right1 * radius, vt1.m_c);
 	CVertex v2(CVertex::vt_ccw_arc, vt1.m_p + right1 * -radius, vt1.m_p);
-	CVertex v3(REVERSE_ARC_TYPE(vt1.m_type), pt0 + right0 * -radius, vt1.m_c);
+	CVertex v3(reverseArcType(vt1.m_type), pt0 + right0 * -radius, vt1.m_c);
 	CVertex v4(CVertex::vt_ccw_arc, pt0 + right0 * radius, pt0);
 
         Units u(1.0, 0.01);
 
-	AddVertex(v0, NULL, u);
+	AddVertex(v0, nullptr, u);
 	AddVertex(v1, &v0, u);
 	AddVertex(v2, &v1, u);
 	AddVertex(v3, &v2, u);
@@ -244,24 +244,21 @@ static void OffsetSpansWithObrounds(const CArea& area, TPolyPolygon &pp_new, dou
 {
 	Clipper c;
 
-
-	for(std::list<CCurve>::const_iterator It = area.m_curves.begin(); It != area.m_curves.end(); It++)
+	for(const auto &curve : area.m_curves)
 	{
 		pts_for_AddVertex.clear();
-		const CCurve& curve = *It;
-		const CVertex* prev_vertex = NULL;
-		for(std::list<CVertex>::const_iterator It2 = curve.m_vertices.begin(); It2 != curve.m_vertices.end(); It2++)
+		const CVertex* prev_vertex = nullptr;
+		for(const auto &vertex : curve.m_vertices)
 		{
-			const CVertex& vertex = *It2;
 			if(prev_vertex)
 			{
 				MakeObround(prev_vertex->m_p, vertex, radius);
 
 				TPolygon loopy_polygon;
 				loopy_polygon.reserve(pts_for_AddVertex.size());
-				for(std::list<DoubleAreaPoint>::iterator It = pts_for_AddVertex.begin(); It != pts_for_AddVertex.end(); It++)
+				for(auto &pt : pts_for_AddVertex)
 				{
-					loopy_polygon.push_back(It->int_point());
+					loopy_polygon.push_back(pt.int_point());
 				}
 				c.AddPath(loopy_polygon, ptSubject, true);
 				pts_for_AddVertex.clear();
@@ -291,14 +288,12 @@ static void OffsetSpansWithObrounds(const CArea& area, TPolyPolygon &pp_new, dou
 static void MakePolyPoly( const CArea& area, TPolyPolygon &pp, const Units &u, bool reverse = true ){
 	pp.clear();
 
-	for(std::list<CCurve>::const_iterator It = area.m_curves.begin(); It != area.m_curves.end(); It++)
+	for(const auto &curve : area.m_curves)
 	{
 		pts_for_AddVertex.clear();
-		const CCurve& curve = *It;
-		const CVertex* prev_vertex = NULL;
-		for(std::list<CVertex>::const_iterator It2 = curve.m_vertices.begin(); It2 != curve.m_vertices.end(); It2++)
+		const CVertex* prev_vertex = nullptr;
+		for(const auto &vertex : curve.m_vertices)
 		{
-			const CVertex& vertex = *It2;
 			if(prev_vertex)AddVertex(vertex, prev_vertex, u);
 			prev_vertex = &vertex;
 		}
@@ -308,17 +303,19 @@ static void MakePolyPoly( const CArea& area, TPolyPolygon &pp, const Units &u, b
 		if(reverse)
 		{
 			size_t i = pts_for_AddVertex.size() - 1;// clipper wants them the opposite way to CArea
-			for(std::list<DoubleAreaPoint>::iterator It = pts_for_AddVertex.begin(); It != pts_for_AddVertex.end(); It++, i--)
+			for(auto &pt : pts_for_AddVertex)
 			{
-				p[i] = It->int_point();
+				p[i] = pt.int_point();
+				i--;
 			}
 		}
 		else
 		{
 			unsigned int i = 0;
-			for(std::list<DoubleAreaPoint>::iterator It = pts_for_AddVertex.begin(); It != pts_for_AddVertex.end(); It++, i++)
+			for(auto &pt : pts_for_AddVertex)
 			{
-				p[i] = It->int_point();
+				p[i] = pt.int_point();
+				i++;
 			}
 		}
 
@@ -329,10 +326,9 @@ static void MakePolyPoly( const CArea& area, TPolyPolygon &pp, const Units &u, b
 static void MakePoly(const CCurve& curve, TPolygon &p, const Units &u)
 {
 	pts_for_AddVertex.clear();
-	const CVertex* prev_vertex = NULL;
-	for (std::list<CVertex>::const_iterator It2 = curve.m_vertices.begin(); It2 != curve.m_vertices.end(); It2++)
+	const CVertex* prev_vertex = nullptr;
+	for (const auto &vertex : curve.m_vertices)
 	{
-		const CVertex& vertex = *It2;
 		if (prev_vertex)AddVertex(vertex, prev_vertex, u);
 		prev_vertex = &vertex;
 	}
@@ -340,9 +336,10 @@ static void MakePoly(const CCurve& curve, TPolygon &p, const Units &u)
 	p.resize(pts_for_AddVertex.size());
 	{
 		unsigned int i = 0;
-		for (std::list<DoubleAreaPoint>::iterator It = pts_for_AddVertex.begin(); It != pts_for_AddVertex.end(); It++, i++)
+		for (auto &pt : pts_for_AddVertex)
 		{
-			p[i] = It->int_point();
+			p[i] = pt.int_point();
+			i++;
 		}
 	}
 }
@@ -425,9 +422,8 @@ CArea CArea::UniteCurves(std::list<CCurve> &curves, const Units &u)
 
 	TPolyPolygon pp;
 
-	for (std::list<CCurve>::iterator It = curves.begin(); It != curves.end(); It++)
+	for (auto &curve : curves)
 	{
-		CCurve &curve = *It;
 		TPolygon p;
 		MakePoly(curve, p, u);
 		pp.push_back(p);
@@ -474,19 +470,17 @@ void CArea::Thicken(double value)
 void UnFitArcs(CCurve &curve, const Units &u)
 {
 	pts_for_AddVertex.clear();
-	const CVertex* prev_vertex = NULL;
-	for(std::list<CVertex>::const_iterator It2 = curve.m_vertices.begin(); It2 != curve.m_vertices.end(); It2++)
+	const CVertex* prev_vertex = nullptr;
+	for(const auto &vertex : curve.m_vertices)
 	{
-		const CVertex& vertex = *It2;
 		AddVertex(vertex, prev_vertex, u);
 		prev_vertex = &vertex;
 	}
 
 	curve.m_vertices.clear();
 
-	for(std::list<DoubleAreaPoint>::iterator It = pts_for_AddVertex.begin(); It != pts_for_AddVertex.end(); It++)
+	for(auto &pt : pts_for_AddVertex)
 	{
-		DoubleAreaPoint &pt = *It;
 		CVertex vertex(CVertex::vt_line, Point(pt.X / u.m_scale, pt.Y / u.m_scale), Point(0.0, 0.0));
 		curve.m_vertices.push_back(vertex);
 	}

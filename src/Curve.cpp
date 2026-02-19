@@ -73,17 +73,18 @@ bool CCurve::CheckForArc(const CVertex& prev_vt, std::list<const CVertex*>& migh
 	if(might_be_an_arc.size() < 2)return false;
 
 	// find middle point
-	unsigned int num = (unsigned int)might_be_an_arc.size();
+	unsigned int num = static_cast<unsigned int>(might_be_an_arc.size());
 	int i = 0;
-	const CVertex* mid_vt = NULL;
+	const CVertex* mid_vt = nullptr;
 	int mid_i = (num-1)/2;
-	for(std::list<const CVertex*>::iterator It = might_be_an_arc.begin(); It != might_be_an_arc.end(); It++, i++)
+	for(auto *vt : might_be_an_arc)
 	{
 		if(i == mid_i)
 		{
-			mid_vt = *It;
+			mid_vt = vt;
 			break;
 		}
+		i++;
 	}
 
 	// create a circle to test
@@ -93,9 +94,8 @@ bool CCurve::CheckForArc(const CVertex& prev_vt, std::list<const CVertex*>& migh
 	CircleOrLine c(p0, p1, p2);
 
 	const CVertex* current_vt = &prev_vt;
-	for(std::list<const CVertex*>::iterator It = might_be_an_arc.begin(); It != might_be_an_arc.end(); It++)
+	for(auto *vt : might_be_an_arc)
 	{
-		const CVertex* vt = *It;
 		if(!c.PointIsOn(vt->m_p, u.m_accuracy / u.m_scale * 0.1))
 			return false;
 		if(!c.LineIsOn(current_vt->m_p, vt->m_p, u.m_accuracy * 2.0 / u.m_scale))
@@ -130,9 +130,8 @@ bool CCurve::CheckForArc(const CVertex& prev_vt, std::list<const CVertex*>& migh
 
 	if(arc.IncludedAngle() >= 3.15)return false; // We don't want full arcs, so limit to about 180 degrees
 
-	for(std::list<const CVertex*>::iterator It = might_be_an_arc.begin(); It != might_be_an_arc.end(); It++)
+	for(auto *vt : might_be_an_arc)
 	{
-		const CVertex* vt = *It;
 		double angp = atan2(vt->m_p.y - arc.m_c.y, vt->m_p.x - arc.m_c.x);
 		if(arc.m_dir)
 		{
@@ -188,12 +187,12 @@ void CCurve::AddArcOrLines(bool check_for_arc, std::list<CVertex> &new_vertices,
 		{
 			if (arc_or_line.m_is_a_line || arc_or_line.m_arc.AlmostALine(u.m_accuracy))
 			{
-                            
+
 				new_vertices.push_back(CVertex(arc_or_line.m_arc.m_e, arc_or_line.m_arc.m_user_data));
 			}
 			else
 			{
-                            CVertex::Type vt = arc_or_line.m_arc.m_dir ? CVertex::vt_ccw_arc : CVertex::vt_ccw_arc;
+                            CVertex::Type vt = arc_or_line.m_arc.m_dir ? CVertex::vt_ccw_arc : CVertex::vt_cw_arc;
 				new_vertices.push_back(CVertex(vt, arc_or_line.m_arc.m_e, arc_or_line.m_arc.m_c, arc_or_line.m_arc.m_user_data));
 				CheckAddedRadii(new_vertices);
 			}
@@ -209,14 +208,15 @@ void CCurve::AddArcOrLines(bool check_for_arc, std::list<CVertex> &new_vertices,
           if (might_be_an_arc.size()>0) {
             const CVertex* back_vt = might_be_an_arc.back();
             if (check_for_arc)might_be_an_arc.pop_back();
-            for (std::list<const CVertex*>::iterator It = might_be_an_arc.begin(); It != might_be_an_arc.end(); It++)
+            bool first = true;
+            for (auto *v : might_be_an_arc)
             {
-              const CVertex* v = *It;
-              if (It != might_be_an_arc.begin() || (new_vertices.size() == 0) || (new_vertices.back().m_p != v->m_p))
+              if (first || (new_vertices.size() == 0) || (new_vertices.back().m_p != v->m_p))
               {
                 new_vertices.push_back(*v);
                 CheckAddedRadii(new_vertices);
               }
+              first = false;
             }
             might_be_an_arc.clear();
             if (check_for_arc)might_be_an_arc.push_back(back_vt);
@@ -236,10 +236,9 @@ void CCurve::FitArcs(const Units &u)
 	bool arc_added = false;
 
 	int i = 0;
-	const CVertex* prev_vt = NULL;
-	for (std::list<CVertex>::iterator It = m_vertices.begin(); It != m_vertices.end(); It++, i++)
+	const CVertex* prev_vt = nullptr;
+	for (auto &vt : m_vertices)
 	{
-		CVertex& vt = *It;
 		if (vt.m_type || i == 0)
 		{
 			if (i != 0)
@@ -264,6 +263,7 @@ void CCurve::FitArcs(const Units &u)
 			}
 		}
 		prev_vt = &vt;
+		i++;
 	}
 
 	if (might_be_an_arc.size() > 0)AddArcOrLines(false, new_vertices, might_be_an_arc, arc_or_line, arc_found, arc_added, u);
@@ -271,19 +271,18 @@ void CCurve::FitArcs(const Units &u)
 	if (arc_added)
 	{
 		m_vertices.clear();
-		for (std::list<CVertex>::iterator It = new_vertices.begin(); It != new_vertices.end(); It++)m_vertices.push_back(*It);
-		for (std::list<const CVertex*>::iterator It = might_be_an_arc.begin(); It != might_be_an_arc.end(); It++)m_vertices.push_back(*(*It));
+		for (auto &v : new_vertices)m_vertices.push_back(v);
+		for (auto *v : might_be_an_arc)m_vertices.push_back(*v);
 	}
 }
 void CCurve::UnFitArcs(const Units &u)
 {
 	std::list<Point> new_pts;
 
-	const CVertex* prev_vertex = NULL;
-	for(std::list<CVertex>::const_iterator It2 = m_vertices.begin(); It2 != m_vertices.end(); It2++)
+	const CVertex* prev_vertex = nullptr;
+	for(const auto &vertex : m_vertices)
 	{
-		const CVertex& vertex = *It2;
-		if(vertex.m_type == 0 || prev_vertex == NULL)
+		if(vertex.m_type == 0 || prev_vertex == nullptr)
 		{
 			new_pts.push_back(vertex.m_p * u.m_scale);
 		}
@@ -327,9 +326,9 @@ void CCurve::UnFitArcs(const Units &u)
 
 				//set the number of segments
 				if (phit > 0)
-					Segments=(int)ceil(phit/dphi);
+					Segments=static_cast<int>(ceil(phit/dphi));
 				else
-					Segments=(int)ceil(-phit/dphi);
+					Segments=static_cast<int>(ceil(-phit/dphi));
 
 				if (Segments < 1)
 					Segments=1;
@@ -362,9 +361,8 @@ void CCurve::UnFitArcs(const Units &u)
 
 	m_vertices.clear();
 
-	for(std::list<Point>::iterator It = new_pts.begin(); It != new_pts.end(); It++)
+	for(auto &pt : new_pts)
 	{
-		Point &pt = *It;
 		CVertex vertex(CVertex::vt_line, pt / u.m_scale, Point(0.0, 0.0));
 		m_vertices.push_back(vertex);
 	}
@@ -378,9 +376,8 @@ Point CCurve::NearestPoint(const Point& p, const Units &u)const
 	Point prev_p = Point(0, 0);
 	bool prev_p_valid = false;
 	bool first_span = true;
-	for(std::list<CVertex>::const_iterator It = m_vertices.begin(); It != m_vertices.end(); It++)
+	for(const auto &vertex : m_vertices)
 	{
-		const CVertex& vertex = *It;
 		if(prev_p_valid)
 		{
                     Point near_point = Span(prev_p, vertex, first_span).NearestPoint(p);
@@ -407,9 +404,8 @@ Point CCurve::NearestPoint(const CCurve& c, const Units &u, double *d)const
 	Point prev_p = Point(0, 0);
 	bool prev_p_valid = false;
 	bool first_span = true;
-	for(std::list<CVertex>::const_iterator It = c.m_vertices.begin(); It != c.m_vertices.end(); It++)
+	for(const auto &vertex : c.m_vertices)
 	{
-		const CVertex& vertex = *It;
 		if(prev_p_valid)
 		{
 			double dist;
@@ -429,13 +425,12 @@ Point CCurve::NearestPoint(const CCurve& c, const Units &u, double *d)const
 	return best_point;
 }
 
-void CCurve::GetBox(CBox2D &box)
+void CCurve::GetBox(CBox2D &box) const
 {
 	Point prev_p = Point(0, 0);
 	bool prev_p_valid = false;
-	for(std::list<CVertex>::iterator It = m_vertices.begin(); It != m_vertices.end(); It++)
+	for(const auto &vertex : m_vertices)
 	{
-		CVertex& vertex = *It;
 		if(prev_p_valid)
 		{
 			Span(prev_p, vertex).GetBox(box);
@@ -449,7 +444,7 @@ void CCurve::Reverse()
 {
 	std::list<CVertex> new_vertices;
 
-	CVertex* prev_v = NULL;
+	CVertex* prev_v = nullptr;
 
 	for(std::list<CVertex>::reverse_iterator It = m_vertices.rbegin(); It != m_vertices.rend(); It++)
 	{
@@ -462,7 +457,7 @@ void CCurve::Reverse()
                     // ccw arc becomes cw arc
                     // cw arc becomes ccw arc
                     type = ((prev_v->m_type == CVertex::vt_line) ? CVertex::vt_line :
-                            REVERSE_ARC_TYPE(prev_v->m_type));
+                            reverseArcType(prev_v->m_type));
                     cp = prev_v->m_c;
 		}
 		CVertex new_v(type, v.m_p, cp);
@@ -478,9 +473,8 @@ double CCurve::GetArea()const
 	double area = 0.0;
 	Point prev_p = Point(0, 0);
 	bool prev_p_valid = false;
-	for(std::list<CVertex>::const_iterator It = m_vertices.begin(); It != m_vertices.end(); It++)
+	for(const auto &vertex : m_vertices)
 	{
-		const CVertex& vertex = *It;
 		if(prev_p_valid)
 		{
 			area += Span(prev_p, vertex).GetArea();
@@ -516,7 +510,7 @@ void CCurve::ChangeStart(const Point &p) {
 
 	for(int i = 0; i < (closed ? 2:1); i++)
 	{
-		const Point *prev_p = NULL;
+		const Point *prev_p = nullptr;
 
 		int span_index = 0;
 		for(std::list<CVertex>::const_iterator VIt = m_vertices.begin(); VIt != m_vertices.end() && !finished; VIt++)
@@ -575,7 +569,7 @@ void CCurve::ChangeStart(const Point &p) {
 
 void CCurve::Break(const Point &p) {
 	// inserts a point, if it lies on the curve
-	const Point *prev_p = NULL;
+	const Point *prev_p = nullptr;
 
 	for(std::list<CVertex>::iterator VIt = m_vertices.begin(); VIt != m_vertices.end(); VIt++)
 	{
@@ -602,7 +596,7 @@ void CCurve::ExtractSeparateCurves(const std::list<Point> &ordered_points, std::
 {
 	// returns separate curves for this curve split at points
 	// the points must be in order along this curve, already, and lie on this curve
-	const Point *prev_p = NULL;
+	const Point *prev_p = nullptr;
 
 	if(ordered_points.size() == 0)
 	{
@@ -615,9 +609,8 @@ void CCurve::ExtractSeparateCurves(const std::list<Point> &ordered_points, std::
 	std::list<Point>::const_iterator PIt = ordered_points.begin();
 	Point point = *PIt;
 
-	for(std::list<CVertex>::const_iterator VIt = m_vertices.begin(); VIt != m_vertices.end(); VIt++)
+	for(const auto &vertex : m_vertices)
 	{
-		const CVertex& vertex = *VIt;
 		if(prev_p)// not the first vertex
 		{
 			Span span(*prev_p, vertex);
@@ -656,7 +649,7 @@ void CCurve::ExtractSeparateCurves(const std::list<Point> &ordered_points, std::
 void CCurve::RemoveTinySpans() {
 	CCurve new_curve;
 
-	std::list<CVertex>::const_iterator VIt = m_vertices.begin(); 
+	std::list<CVertex>::const_iterator VIt = m_vertices.begin();
 	new_curve.m_vertices.push_back(*VIt);
 	VIt++;
 
@@ -676,12 +669,10 @@ void CCurve::ChangeEnd(const Point &p) {
 	// changes the end position of the Kurve, doesn't keep closed kurves closed
 	CCurve new_curve;
 
-	const Point *prev_p = NULL;
+	const Point *prev_p = nullptr;
 
-	for(std::list<CVertex>::const_iterator VIt = m_vertices.begin(); VIt != m_vertices.end(); VIt++)
+	for(const auto &vertex : m_vertices)
 	{
-		const CVertex& vertex = *VIt;
-
 		if(prev_p)
 		{
 			Span span(*prev_p, vertex);
@@ -715,9 +706,8 @@ Point CCurve::NearestPoint(const Span& p, const Units &u, double *d)const
 	Point prev_p = Point(0, 0);
 	bool prev_p_valid = false;
 	bool first_span = true;
-	for(std::list<CVertex>::const_iterator It = m_vertices.begin(); It != m_vertices.end(); It++)
+	for(const auto &vertex : m_vertices)
 	{
-		const CVertex& vertex = *It;
 		if(prev_p_valid)
 		{
 			double dist;
@@ -740,9 +730,8 @@ Point CCurve::NearestPoint(const Span& p, const Units &u, double *d)const
 static geoff_geometry::Kurve MakeKurve(const CCurve& curve)
 {
 	geoff_geometry::Kurve k;
-	for(std::list<CVertex>::const_iterator It = curve.m_vertices.begin(); It != curve.m_vertices.end(); It++)
+	for(const auto &v : curve.m_vertices)
 	{
-		const CVertex& v = *It;
 		k.Add(geoff_geometry::spVertex(v.m_type, geoff_geometry::Point(v.m_p.x, v.m_p.y), geoff_geometry::Point(v.m_c.x, v.m_c.y)));
 	}
 	return k;
@@ -806,7 +795,7 @@ bool CCurve::Offset(double leftwards_value, const Units &u)
 			a.Offset(inwards_offset);
 			if(a.m_curves.size() == 1)
 			{
-				Span* start_span = NULL;
+				Span* start_span = nullptr;
 				if(this->m_vertices.size() > 1)
 				{
 					std::list<CVertex>::iterator It = m_vertices.begin();
@@ -835,10 +824,9 @@ bool CCurve::Offset(double leftwards_value, const Units &u)
 
 void CCurve::GetSpans(std::list<Span> &spans)const
 {
-	const Point *prev_p = NULL;
-	for(std::list<CVertex>::const_iterator It = m_vertices.begin(); It != m_vertices.end(); It++)
+	const Point *prev_p = nullptr;
+	for(const auto &vertex : m_vertices)
 	{
-		const CVertex& vertex = *It;
 		if(prev_p)
 		{
 			spans.push_back(Span(*prev_p, vertex));
@@ -860,9 +848,8 @@ void CCurve::OffsetForward(double forwards_value, const Units &u, bool refit_arc
 	m_vertices.clear();
 
 	// shift all the spans
-	for(std::list<Span>::iterator It = spans.begin(); It != spans.end(); It++)
+	for(auto &span : spans)
 	{
-		Span &span = *It;
 		Point v = span.GetVector(0.0);
 		v.normalize();
 		Point shift = v * forwards_value;
@@ -871,14 +858,15 @@ void CCurve::OffsetForward(double forwards_value, const Units &u, bool refit_arc
 	}
 
 	// loop through the shifted spans
-	for(std::list<Span>::iterator It = spans.begin(); It != spans.end();)
+	bool first = true;
+	for(auto It = spans.begin(); It != spans.end();)
 	{
 		Span &span = *It;
 		Point v = span.GetVector(0.0);
 		v.normalize();
 
 		// add the span
-		if(It == spans.begin())m_vertices.push_back(span.m_p);
+		if(first)m_vertices.push_back(span.m_p);
 		m_vertices.push_back(span.m_v.m_p);
 
 		It++;
@@ -898,6 +886,7 @@ void CCurve::OffsetForward(double forwards_value, const Units &u, bool refit_arc
                             m_vertices.push_back(CVertex(arc_type, next_span.m_p, centre));
 			}
 		}
+		first = false;
 	}
 
 	if(refit_arcs)
@@ -908,11 +897,10 @@ void CCurve::OffsetForward(double forwards_value, const Units &u, bool refit_arc
 
 double CCurve::Perim()const
 {
-	const Point *prev_p = NULL;
+	const Point *prev_p = nullptr;
 	double perim = 0.0;
-	for(std::list<CVertex>::const_iterator It = m_vertices.begin(); It != m_vertices.end(); It++)
+	for(const auto &vertex : m_vertices)
 	{
-		const CVertex& vertex = *It;
 		if(prev_p)
 		{
 			Span span(*prev_p, vertex);
@@ -928,11 +916,10 @@ Point CCurve::PerimToPoint(double perim)const
 {
 	if(m_vertices.size() == 0)return Point(0, 0);
 
-	const Point *prev_p = NULL;
+	const Point *prev_p = nullptr;
 	double kperim = 0.0;
-	for(std::list<CVertex>::const_iterator It = m_vertices.begin(); It != m_vertices.end(); It++)
+	for(const auto &vertex : m_vertices)
 	{
-		const CVertex& vertex = *It;
 		if(prev_p)
 		{
 			Span span(*prev_p, vertex);
@@ -958,11 +945,10 @@ double CCurve::PointToPerim(const Point& p, const Units &u)const
 
 	double perim = 0.0;
 
-	const Point *prev_p = NULL;
+	const Point *prev_p = nullptr;
 	bool first_span = true;
-	for(std::list<CVertex>::const_iterator It = m_vertices.begin(); It != m_vertices.end(); It++)
+	for(const auto &vertex : m_vertices)
 	{
-		const CVertex& vertex = *It;
 		if(prev_p)
 		{
 			Span span(*prev_p, vertex, first_span);
@@ -985,15 +971,16 @@ double CCurve::PointToPerim(const Point& p, const Units &u)const
 
 void CCurve::operator+=(const CCurve& curve)
 {
-	for(std::list<CVertex>::const_iterator It = curve.m_vertices.begin(); It != curve.m_vertices.end(); It++)
+	bool first = true;
+	for(const auto &vt : curve.m_vertices)
 	{
-		const CVertex &vt = *It;
-		if(It == curve.m_vertices.begin())
+		if(first)
 		{
-			if((m_vertices.size() == 0) || (It->m_p != m_vertices.back().m_p))
+			if((m_vertices.size() == 0) || (vt.m_p != m_vertices.back().m_p))
 			{
-				m_vertices.push_back(CVertex(It->m_p));
+				m_vertices.push_back(CVertex(vt.m_p));
 			}
+			first = false;
 		}
 		else
 		{
@@ -1013,14 +1000,12 @@ void CCurve::SpanIntersections(const Span& s, std::list<Point> &pts)const
 {
 	std::list<Span> spans;
 	GetSpans(spans);
-	for(std::list<Span>::iterator It = spans.begin(); It != spans.end(); It++)
+	for(auto &span : spans)
 	{
-		Span& span = *It;
 		std::list<Point> pts2;
 		span.Intersect(s, pts2);
-		for(std::list<Point>::iterator It = pts2.begin(); It != pts2.end(); It++)
+		for(auto &pt : pts2)
 		{
-			Point &pt = *It;
 			if(pts.size() == 0)
 			{
 				pts.push_back(pt);
@@ -1044,7 +1029,7 @@ Point Span::NearestPointNotOnSpan(const Point& p)const
 	{
 		Point Vs = (m_v.m_p - m_p);
 		Vs.normalize();
-		double dp = (p - m_p) * Vs;		
+		double dp = (p - m_p) * Vs;
 		return (Vs * dp) + m_p;
 	}
 	else
@@ -1172,7 +1157,7 @@ static Point QuadrantEndPoint(int i)
 	}
 }
 
-void Span::GetBox(CBox2D &box)
+void Span::GetBox(CBox2D &box) const
 {
 	box.Insert(m_p);
 	box.Insert(m_v.m_p);
@@ -1208,7 +1193,7 @@ double IncludedAngle(const Point& v0, const Point& v1, int dir) {
 	double inc_ang = v0 * v1;
 	if(inc_ang > 1. - 1.0e-10) return 0;
 	if(inc_ang < -1. + 1.0e-10)
-		inc_ang = PI;  
+		inc_ang = PI;
 	else {									// dot product,   v1 . v2  =  cos ang
 		if(inc_ang > 1.0) inc_ang = 1.0;
 		inc_ang = acos(inc_ang);									// 0 to pi radians

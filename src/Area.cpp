@@ -21,7 +21,7 @@ double CArea::m_after_MakeOffsets_length = 0.0;
 //static const double PI = 3.1415926535897932;
 
 CArea::CArea(const Units &u) : m_units(u) {
-    
+
 }
 
 CArea::CArea(const CArea &rhs) : m_curves(rhs.m_curves), m_units(rhs.m_units) {
@@ -33,9 +33,8 @@ void CArea::append(const CCurve& curve)
 }
 
 void CArea::FitArcs(){
-	for(std::list<CCurve>::iterator It = m_curves.begin(); It != m_curves.end(); It++)
+	for(auto &curve : m_curves)
 	{
-		CCurve& curve = *It;
 		curve.FitArcs(m_units);
 	}
 }
@@ -44,42 +43,42 @@ Point CArea::NearestPoint(const Point& p)const
 {
 	double best_dist = 0.0;
 	Point best_point = Point(0, 0);
-	for(std::list<CCurve>::const_iterator It = m_curves.begin(); It != m_curves.end(); It++)
+	bool first = true;
+	for(const auto &curve : m_curves)
 	{
-		const CCurve& curve = *It;
 		Point near_point = curve.NearestPoint(p, m_units);
 		double dist = near_point.dist(p);
-		if(It == m_curves.begin() || dist < best_dist)
+		if(first || dist < best_dist)
 		{
 			best_dist = dist;
 			best_point = near_point;
+			first = false;
 		}
 	}
 	return best_point;
 }
 
-void CArea::GetBox(CBox2D &box)
+void CArea::GetBox(CBox2D &box) const
 {
-	for(std::list<CCurve>::iterator It = m_curves.begin(); It != m_curves.end(); It++)
+	for(const auto &curve : m_curves)
 	{
-		CCurve& curve = *It;
-		curve.GetBox(box);
+		CCurve &nc = const_cast<CCurve&>(curve);
+		nc.GetBox(box);
 	}
 }
 
 void CArea::Reorder()
 {
 	// curves may have been added with wrong directions
-	// test all kurves to see which one are outsides and which are insides and 
+	// test all kurves to see which one are outsides and which are insides and
 	// make sure outsides are anti-clockwise and insides are clockwise
 
 	// returns 0, if the curves are OK
 	// returns 1, if the curves are overlapping
 
 	CAreaOrderer ao;
-	for(std::list<CCurve>::iterator It = m_curves.begin(); It != m_curves.end(); It++)
+	for(auto &curve : m_curves)
 	{
-		CCurve& curve = *It;
 		ao.Insert(&curve, m_units);
 		if(m_set_processing_length_in_split)
 		{
@@ -100,7 +99,7 @@ public:
 
 static double stepover_for_pocket = 0.0;
 static std::list<ZigZag> zigzag_list_for_zigs;
-static std::list<CCurve> *curve_list_for_zigs = NULL;
+static std::list<CCurve> *curve_list_for_zigs = nullptr;
 static bool rightward_for_zigs = true;
 static double sin_angle_for_zigs = 0.0;
 static double cos_angle_for_zigs = 0.0;
@@ -112,7 +111,7 @@ static Point rotated_point(const Point &p)
 {
 	return Point(p.x * cos_angle_for_zigs - p.y * sin_angle_for_zigs, p.x * sin_angle_for_zigs + p.y * cos_angle_for_zigs);
 }
-    
+
 static Point unrotated_point(const Point &p)
 {
     return Point(p.x * cos_minus_angle_for_zigs - p.y * sin_minus_angle_for_zigs, p.x * sin_minus_angle_for_zigs + p.y * cos_minus_angle_for_zigs);
@@ -140,12 +139,10 @@ static CVertex unrotated_vertex(const CVertex &v)
 
 static void rotate_area(CArea &a)
 {
-	for(std::list<CCurve>::iterator It = a.m_curves.begin(); It != a.m_curves.end(); It++)
+	for(auto &curve : a.m_curves)
 	{
-		CCurve& curve = *It;
-		for(std::list<CVertex>::iterator CIt = curve.m_vertices.begin(); CIt != curve.m_vertices.end(); CIt++)
+		for(auto &vt : curve.m_vertices)
 		{
-			CVertex& vt = *CIt;
 			vt = rotated_vertex(vt);
 		}
 	}
@@ -214,13 +211,12 @@ static void make_zig_curve(const CCurve& input_curve, double y0, double y)
 	bool bottom_left_found = false;
 
 	int i =0;
-	for(std::list<CVertex>::const_iterator VIt = curve.m_vertices.begin(); VIt != curve.m_vertices.end(); VIt++, i++)
+	for(const auto &vertex : curve.m_vertices)
 	{
-		const CVertex& vertex = *VIt;
-
 		test_y_point(i, vertex.m_p, top_right, top_right_found, top_right_index, y, !rightward_for_zigs);
 		test_y_point(i, vertex.m_p, top_left, top_left_found, top_left_index, y, rightward_for_zigs);
 		test_y_point(i, vertex.m_p, bottom_left, bottom_left_found, bottom_left_index, y0, rightward_for_zigs);
+		i++;
 	}
 
 	int start_index = 0;
@@ -244,25 +240,26 @@ static void make_zig_curve(const CCurve& input_curve, double y0, double y)
 	if(zag_end_index <= start_index)zag_end_index += (i-1);
 
     CCurve zig, zag;
-    
+
     bool zig_started = false;
     bool zig_finished = false;
     bool zag_finished = false;
-    
+
 	int v_index = 0;
 	for(int i = 0; i < 2; i++)
 	{
 		// process the curve twice because we don't know where it will start
 		if(zag_finished)
 			break;
-		for(std::list<CVertex>::const_iterator VIt = curve.m_vertices.begin(); VIt != curve.m_vertices.end(); VIt++)
+		bool first_vertex = true;
+		for(const auto &vertex : curve.m_vertices)
 		{
-			if(i == 1 && VIt == curve.m_vertices.begin())
+			if(i == 1 && first_vertex)
 			{
+				first_vertex = false;
 				continue;
 			}
-
-			const CVertex& vertex = *VIt;
+			first_vertex = false;
 
 			if(zig_finished)
 			{
@@ -298,22 +295,21 @@ static void make_zig_curve(const CCurve& input_curve, double y0, double y)
 			v_index++;
 		}
 	}
-        
+
     if(zig_finished)
 		zigzag_list_for_zigs.push_back(ZigZag(zig, zag));
 }
 
 void make_zig(const CArea &a, double y0, double y)
 {
-	for(std::list<CCurve>::const_iterator It = a.m_curves.begin(); It != a.m_curves.end(); It++)
+	for(const auto &curve : a.m_curves)
 	{
-		const CCurve &curve = *It;
 		make_zig_curve(curve, y0, y);
 	}
 }
-        
+
 std::list< std::list<ZigZag> > reorder_zig_list_list;
-        
+
 void add_reorder_zig(ZigZag &zigzag)
 {
     // look in existing lists
@@ -323,15 +319,15 @@ void add_reorder_zig(ZigZag &zigzag)
 	{
 		const Point& zag_e = zigzag.zag.m_vertices.front().m_p;
 		bool zag_removed = false;
-		for(std::list< std::list<ZigZag> >::iterator It = reorder_zig_list_list.begin(); It != reorder_zig_list_list.end() && !zag_removed; It++)
+		for(auto &zigzag_list : reorder_zig_list_list)
 		{
-			std::list<ZigZag> &zigzag_list = *It;
-			for(std::list<ZigZag>::iterator It2 = zigzag_list.begin(); It2 != zigzag_list.end() && !zag_removed; It2++)
+			if(zag_removed) break;
+			for(const auto &z : zigzag_list)
 			{
-				const ZigZag& z = *It2;
-				for(std::list<CVertex>::const_iterator It3 = z.zig.m_vertices.begin(); It3 != z.zig.m_vertices.end() && !zag_removed; It3++)
+				if(zag_removed) break;
+				for(const auto &v : z.zig.m_vertices)
 				{
-					const CVertex &v = *It3;
+					if(zag_removed) break;
 					if((fabs(zag_e.x - v.m_p.x) < (0.002 * one_over_units)) && (fabs(zag_e.y - v.m_p.y) < (0.002 * one_over_units)))
 					{
 						// remove zag from zigzag
@@ -345,9 +341,8 @@ void add_reorder_zig(ZigZag &zigzag)
 
 	// see if the zigzag can join the end of an existing list
 	const Point& zig_s = zigzag.zig.m_vertices.front().m_p;
-	for(std::list< std::list<ZigZag> >::iterator It = reorder_zig_list_list.begin(); It != reorder_zig_list_list.end(); It++)
+	for(auto &zigzag_list : reorder_zig_list_list)
 	{
-		std::list<ZigZag> &zigzag_list = *It;
 		const ZigZag& last_zigzag = zigzag_list.back();
         const Point& e = last_zigzag.zig.m_vertices.back().m_p;
         if((fabs(zig_s.x - e.x) < (0.002 * one_over_units)) && (fabs(zig_s.y - e.y) < (0.002 * one_over_units)))
@@ -356,7 +351,7 @@ void add_reorder_zig(ZigZag &zigzag)
 			return;
 		}
 	}
-        
+
     // else add a new list
     std::list<ZigZag> zigzag_list;
     zigzag_list.push_back(zigzag);
@@ -365,40 +360,49 @@ void add_reorder_zig(ZigZag &zigzag)
 
 void reorder_zigs()
 {
-	for(std::list<ZigZag>::iterator It = zigzag_list_for_zigs.begin(); It != zigzag_list_for_zigs.end(); It++)
+	for(auto &zigzag : zigzag_list_for_zigs)
 	{
-		ZigZag &zigzag = *It;
         add_reorder_zig(zigzag);
 	}
-        
+
 	zigzag_list_for_zigs.clear();
 
-	for(std::list< std::list<ZigZag> >::iterator It = reorder_zig_list_list.begin(); It != reorder_zig_list_list.end(); It++)
+	for(auto &zigzag_list : reorder_zig_list_list)
 	{
-		std::list<ZigZag> &zigzag_list = *It;
 		if(zigzag_list.size() == 0)continue;
 
 		curve_list_for_zigs->push_back(CCurve());
-		for(std::list<ZigZag>::const_iterator It = zigzag_list.begin(); It != zigzag_list.end();)
+		bool first_zig = true;
+		for(auto It = zigzag_list.begin(); It != zigzag_list.end();)
 		{
 			const ZigZag &zigzag = *It;
-			for(std::list<CVertex>::const_iterator It2 = zigzag.zig.m_vertices.begin(); It2 != zigzag.zig.m_vertices.end(); It2++)
+			bool first_vertex = true;
+			for(const auto &v : zigzag.zig.m_vertices)
 			{
-				if(It2 == zigzag.zig.m_vertices.begin() && It != zigzag_list.begin())continue; // only add the first vertex if doing the first zig
-				const CVertex &v = *It2;
+				if(first_vertex && !first_zig)
+				{
+					first_vertex = false;
+					continue; // only add the first vertex if doing the first zig
+				}
+				first_vertex = false;
 				curve_list_for_zigs->back().m_vertices.push_back(v);
 			}
 
 			It++;
 			if(It == zigzag_list.end())
 			{
-				for(std::list<CVertex>::const_iterator It2 = zigzag.zag.m_vertices.begin(); It2 != zigzag.zag.m_vertices.end(); It2++)
+				bool first_zag_vertex = true;
+				for(const auto &v : zigzag.zag.m_vertices)
 				{
-					if(It2 == zigzag.zag.m_vertices.begin())continue; // don't add the first vertex of the zag
-					const CVertex &v = *It2;
+					if(first_zag_vertex)
+					{
+						first_zag_vertex = false;
+						continue; // don't add the first vertex of the zag
+					}
 					curve_list_for_zigs->back().m_vertices.push_back(v);
 				}
 			}
+			first_zig = false;
 		}
 	}
 	reorder_zig_list_list.clear();
@@ -411,15 +415,15 @@ static void zigzag(const CArea &input_a)
 		CArea::m_processing_done += CArea::m_single_area_processing_length;
 		return;
 	}
-    
+
     one_over_units = 1 / input_a.m_units.m_scale;
-    
+
 	CArea a(input_a);
     rotate_area(a);
-    
+
     CBox2D b;
 	a.GetBox(b);
-    
+
     double x0 = b.MinX() - 1.0;
     double x1 = b.MaxX() + 1.0;
 
@@ -475,10 +479,9 @@ void CArea::SplitAndMakePocketToolpath(std::list<CCurve> &curve_list, const CAre
 
 	double single_area_length = 50.0 / areas.size();
 
-	for(std::list<CArea>::iterator It = areas.begin(); It != areas.end(); It++)
+	for(auto &ar : areas)
 	{
 		CArea::m_single_area_processing_length = single_area_length;
-		CArea &ar = *It;
 		ar.MakePocketToolpath(curve_list, params);
 	}
 }
@@ -515,9 +518,8 @@ void CArea::MakePocketToolpath(std::list<CCurve> &curve_list, const CAreaPocketP
 
 		CArea::m_single_area_processing_length /= areas.size();
 
-		for(std::list<CArea>::iterator It = areas.begin(); It != areas.end(); It++)
+		for(auto &a2 : areas)
 		{
-			CArea &a2 = *It;
 			a2.MakeOnePocketCurve(curve_list, params);
 		}
 	}
@@ -525,9 +527,8 @@ void CArea::MakePocketToolpath(std::list<CCurve> &curve_list, const CAreaPocketP
 	if(params.mode == SingleOffsetPocketMode || params.mode == ZigZagThenSingleOffsetPocketMode)
 	{
 		// add the single offset too
-		for(std::list<CCurve>::iterator It = a_offset.m_curves.begin(); It != a_offset.m_curves.end(); It++)
+		for(auto &curve : a_offset.m_curves)
 		{
-			CCurve& curve = *It;
 			curve_list.push_back(curve);
 		}
 	}
@@ -537,9 +538,8 @@ void CArea::Split(std::list<CArea> &areas)const
 {
 	if(IsBoolean())
 	{
-		for(std::list<CCurve>::const_iterator It = m_curves.begin(); It != m_curves.end(); It++)
+		for(const auto &curve : m_curves)
 		{
-			const CCurve& curve = *It;
 			areas.push_back(CArea(m_units));
 			areas.back().m_curves.push_back(curve);
 		}
@@ -551,9 +551,8 @@ void CArea::Split(std::list<CArea> &areas)const
 
 		if(CArea::m_please_abort)return;
 
-		for(std::list<CCurve>::const_iterator It = a.m_curves.begin(); It != a.m_curves.end(); It++)
+		for(const auto &curve : a.m_curves)
 		{
-			const CCurve& curve = *It;
 			if(curve.IsClockwise())
 			{
 				if(areas.size() > 0)
@@ -572,9 +571,8 @@ double CArea::GetArea(bool always_add)const
 {
 	// returns the area of the area
 	double area = 0.0;
-	for(std::list<CCurve>::const_iterator It = m_curves.begin(); It != m_curves.end(); It++)
+	for(const auto &curve : m_curves)
 	{
-		const CCurve& curve = *It;
 		double a = curve.GetArea();
 		if(always_add)area += fabs(a);
 		else area += a;
@@ -648,17 +646,15 @@ void CArea::SpanIntersections(const Span& span, std::list<Point> &pts)const
 
 	// get all points where this area's curves intersect the span
 	std::list<Point> pts2;
-	for(std::list<CCurve>::const_iterator It = m_curves.begin(); It != m_curves.end(); It++)
+	for(const auto &c : m_curves)
 	{
-		const CCurve &c = *It;
 		c.SpanIntersections(span, pts2);
 	}
 
 	// order them along the span
 	std::multimap<double, Point> ordered_points;
-	for(std::list<Point>::iterator It = pts2.begin(); It != pts2.end(); It++)
+	for(auto &p : pts2)
 	{
-		Point &p = *It;
 		double t;
 		if(span.On(p, &t))
 		{
@@ -667,10 +663,9 @@ void CArea::SpanIntersections(const Span& span, std::list<Point> &pts)const
 	}
 
 	// add them to the given list of points
-	for(std::multimap<double, Point>::iterator It = ordered_points.begin(); It != ordered_points.end(); It++)
+	for(auto &pair : ordered_points)
 	{
-		Point p = It->second;
-		pts.push_back(p);
+		pts.push_back(pair.second);
 	}
 }
 
@@ -679,14 +674,12 @@ void CArea::CurveIntersections(const CCurve& curve, std::list<Point> &pts)const
 	// this returns all the intersections of this area with the given curve, ordered along the curve
 	std::list<Span> spans;
 	curve.GetSpans(spans);
-	for(std::list<Span>::iterator It = spans.begin(); It != spans.end(); It++)
+	for(auto &span : spans)
 	{
-		Span& span = *It;
 		std::list<Point> pts2;
 		SpanIntersections(span, pts2);
-		for(std::list<Point>::iterator It = pts2.begin(); It != pts2.end(); It++)
+		for(auto &pt : pts2)
 		{
-			Point &pt = *It;
 			if(pts.size() == 0)
 			{
 				pts.push_back(pt);
@@ -723,11 +716,10 @@ void CArea::InsideCurves(const CCurve& curve, std::list<CCurve> &curves_inside)c
 	curve.ExtractSeparateCurves(pts, separate_curves);
 
 	//3. if the midpoint of a seperate curve lies in a1, then we return it.
-	for(std::list<CCurve>::iterator It = separate_curves.begin(); It != separate_curves.end(); It++)
+	for(auto &sc : separate_curves)
 	{
-		CCurve &curve = *It;
-		double length = curve.Perim();
-		Point mid_point = curve.PerimToPoint(length * 0.5);
-		if(IsInside(mid_point, *this))curves_inside.push_back(curve);
+		double length = sc.Perim();
+		Point mid_point = sc.PerimToPoint(length * 0.5);
+		if(IsInside(mid_point, *this))curves_inside.push_back(sc);
 	}
 }
