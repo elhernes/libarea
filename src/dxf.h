@@ -9,6 +9,7 @@
 #include <map>
 #include <set>
 #include <fstream>
+#include <memory>
 #include <sstream>
 #include <iostream>
 #include <stdio.h>
@@ -74,7 +75,7 @@ struct SplineData
 
 class CDxfWrite{
 private:
-	std::ofstream* m_ofs;
+	std::unique_ptr<std::ofstream> m_ofs;
 	bool m_fail;
 
 public:
@@ -93,7 +94,7 @@ public:
 // derive a class from this and implement it's virtual functions
 class CDxfRead{
 private:
-	std::ifstream* m_ifs;
+	std::unique_ptr<std::ifstream> m_ifs;
 
 	bool m_fail;
 	char m_str[1024];

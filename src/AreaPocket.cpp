@@ -7,6 +7,7 @@
 #include "Area.h"
 
 #include <map>
+#include <memory>
 #include <set>
 
 class IslandAndOffset
@@ -49,11 +50,10 @@ class CurveTree
 public:
     Point point_on_parent;
     CCurve curve;
-    std::list<CurveTree*> inners;
+    std::list<std::unique_ptr<CurveTree>> inners;
     std::list<const IslandAndOffset*> offset_islands;
     CurveTree(const CAreaPocketParams &params, const CCurve &c) : m_params(params), curve(c) {
     }
-    ~CurveTree(){}
 
     void MakeOffsets(const Units &u, CAreaProcessingContext *ctx);
 };
@@ -82,9 +82,9 @@ void GetCurveItem::GetCurve(CCurve& output, const Units &u, std::list<GetCurveIt
 	output.m_vertices.insert(this->EndIt, CVertex(curve_tree->curve.m_vertices.front()));
 
 	std::list<CurveTree*> inners_to_visit;
-	for(std::list<CurveTree*>::iterator It2 = curve_tree->inners.begin(); It2 != curve_tree->inners.end(); It2++)
+	for(auto &inner : curve_tree->inners)
 	{
-		inners_to_visit.push_back(*It2);
+		inners_to_visit.push_back(inner.get());
 	}
 
 	const CVertex* prev_vertex = nullptr;
@@ -204,8 +204,8 @@ void CurveTree::MakeOffsets2(const Units &u, std::list<CurveTree*> &to_do_list, 
 			It++; // island is still inside
 		else
 		{
-                    inners.push_back(new CurveTree(m_params, *island_and_offset->island));
-			islands_added.push_back(inners.back());
+                    inners.push_back(std::make_unique<CurveTree>(m_params, *island_and_offset->island));
+			islands_added.push_back(inners.back().get());
 			inners.back()->point_on_parent = curve.NearestPoint(*island_and_offset->island, u);
 			if(ctx && ctx->please_abort)return;
 			Point island_point = island_and_offset->island->NearestPoint(inners.back()->point_on_parent, u);
@@ -216,13 +216,13 @@ void CurveTree::MakeOffsets2(const Units &u, std::list<CurveTree*> &to_do_list, 
 			// add the island offset's inner curves
 			for(const auto &island_inner : island_and_offset->island_inners)
 			{
-				inners.back()->inners.push_back(new CurveTree(m_params, island_inner));
+				inners.back()->inners.push_back(std::make_unique<CurveTree>(m_params, island_inner));
 				inners.back()->inners.back()->point_on_parent = inners.back()->curve.NearestPoint(island_inner, u);
 				if(ctx && ctx->please_abort)return;
 				Point island_point = island_inner.NearestPoint(inners.back()->inners.back()->point_on_parent, u);
 				if(ctx && ctx->please_abort)return;
 				inners.back()->inners.back()->curve.ChangeStart(island_point);
-				to_do_list.push_back(inners.back()->inners.back()); // do it later, in a while loop
+				to_do_list.push_back(inners.back()->inners.back().get()); // do it later, in a while loop
 				if(ctx && ctx->please_abort)return;
 			}
 
@@ -233,7 +233,7 @@ void CurveTree::MakeOffsets2(const Units &u, std::list<CurveTree*> &to_do_list, 
 			std::list<IslandAndOffsetLink> touching_list;
 			for(const auto *touching : island_and_offset->touching_offsets)
 			{
-				touching_list.push_back(IslandAndOffsetLink(touching, inners.back()));
+				touching_list.push_back(IslandAndOffsetLink(touching, inners.back().get()));
 				added.insert(touching);
 			}
 
@@ -241,8 +241,8 @@ void CurveTree::MakeOffsets2(const Units &u, std::list<CurveTree*> &to_do_list, 
 			{
 				IslandAndOffsetLink touching = touching_list.front();
 				touching_list.pop_front();
-				touching.add_to->inners.push_back(new CurveTree(m_params, *touching.island_and_offset->island));
-				islands_added.push_back(touching.add_to->inners.back());
+				touching.add_to->inners.push_back(std::make_unique<CurveTree>(m_params, *touching.island_and_offset->island));
+				islands_added.push_back(touching.add_to->inners.back().get());
 				touching.add_to->inners.back()->point_on_parent = touching.add_to->curve.NearestPoint(*touching.island_and_offset->island, u);
 				Point island_point = touching.island_and_offset->island->NearestPoint(touching.add_to->inners.back()->point_on_parent, u);
 				touching.add_to->inners.back()->curve.ChangeStart(island_point);
@@ -251,13 +251,13 @@ void CurveTree::MakeOffsets2(const Units &u, std::list<CurveTree*> &to_do_list, 
 				// add the island offset's inner curves
 				for(const auto &island_inner : touching.island_and_offset->island_inners)
 				{
-					touching.add_to->inners.back()->inners.push_back(new CurveTree(m_params, island_inner));
+					touching.add_to->inners.back()->inners.push_back(std::make_unique<CurveTree>(m_params, island_inner));
 					touching.add_to->inners.back()->inners.back()->point_on_parent = touching.add_to->inners.back()->curve.NearestPoint(island_inner, u);
 					if(ctx && ctx->please_abort)return;
 					Point island_point = island_inner.NearestPoint(touching.add_to->inners.back()->inners.back()->point_on_parent, u);
 					if(ctx && ctx->please_abort)return;
 					touching.add_to->inners.back()->inners.back()->curve.ChangeStart(island_point);
-					to_do_list.push_back(touching.add_to->inners.back()->inners.back()); // do it later, in a while loop
+					to_do_list.push_back(touching.add_to->inners.back()->inners.back().get()); // do it later, in a while loop
 					if(ctx && ctx->please_abort)return;
 				}
 
@@ -265,7 +265,7 @@ void CurveTree::MakeOffsets2(const Units &u, std::list<CurveTree*> &to_do_list, 
 				{
 					if(added.find(t2)==added.end() && (t2 != island_and_offset))
 					{
-						touching_list.push_back(IslandAndOffsetLink(t2, touching.add_to->inners.back()));
+						touching_list.push_back(IslandAndOffsetLink(t2, touching.add_to->inners.back().get()));
 						added.insert(t2);
 					}
 				}
@@ -300,7 +300,7 @@ void CurveTree::MakeOffsets2(const Units &u, std::list<CurveTree*> &to_do_list, 
 		CurveTree* nearest_curve_tree = nullptr;
 		Point near_point = GetNearestPoint(this, islands_added, first_curve, &nearest_curve_tree, u);
 
-		nearest_curve_tree->inners.push_back(new CurveTree(m_params, first_curve));
+		nearest_curve_tree->inners.push_back(std::make_unique<CurveTree>(m_params, first_curve));
 
 		for(const auto *island_and_offset : offset_islands)
 		{
@@ -316,7 +316,7 @@ void CurveTree::MakeOffsets2(const Units &u, std::list<CurveTree*> &to_do_list, 
 		if(ctx && ctx->please_abort)return;
 		nearest_curve_tree->inners.back()->curve.ChangeStart(first_curve_point);
 		if(ctx && ctx->please_abort)return;
-		to_do_list.push_back(nearest_curve_tree->inners.back()); // do it later, in a while loop
+		to_do_list.push_back(nearest_curve_tree->inners.back().get()); // do it later, in a while loop
 		if(ctx && ctx->please_abort)return;
 	}
 }
@@ -502,22 +502,7 @@ void CArea::MakeOnePocketCurve(std::list<CCurve> &curve_list, const CAreaPocketP
 		get_curve_to_do_list.pop_front();
 	}
 
-	// delete curve_trees non-recursively
-	std::list<CurveTree*> CurveTreeDestructList;
-	for(auto *inner : top_level.inners)
-	{
-		CurveTreeDestructList.push_back(inner);
-	}
-	while(CurveTreeDestructList.size() > 0)
-	{
-		CurveTree* curve_tree = CurveTreeDestructList.front();
-		CurveTreeDestructList.pop_front();
-		for(auto *inner : curve_tree->inners)
-		{
-			CurveTreeDestructList.push_back(inner);
-		}
-		delete curve_tree;
-	}
+	// unique_ptr handles cleanup when top_level goes out of scope
 
 	if(ctx) ctx->processing_done += ctx->single_area_processing_length * 0.1;
 #endif

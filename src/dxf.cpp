@@ -11,11 +11,7 @@ CDxfWrite::CDxfWrite(const char* filepath)
 {
 	// start the file
 	m_fail = false;
-#ifdef __WXMSW__
-	m_ofs = new ofstream(filepath, ios::out);
-#else
-	m_ofs = new ofstream(filepath, ios::out);
-#endif
+	m_ofs = std::make_unique<ofstream>(filepath, ios::out);
 	if(!(*m_ofs)){
 		m_fail = true;
 		return;
@@ -36,8 +32,6 @@ CDxfWrite::~CDxfWrite()
 	(*m_ofs) << "ENDSEC"   << endl;
 	(*m_ofs) << 0          << endl;
 	(*m_ofs) << "EOF";
-
-	delete m_ofs;
 }
 
 void CDxfWrite::WriteLine(const double* s, const double* e, const char* layer_name)
@@ -170,7 +164,7 @@ CDxfRead::CDxfRead(const char* filepath)
 	strcpy(m_layer_name, "0");	// Default layer name
 	m_ignore_errors = true;
 
-	m_ifs = new ifstream(filepath);
+	m_ifs = std::make_unique<ifstream>(filepath);
 	if(!(*m_ifs)){
 		m_fail = true;
 		return;
@@ -181,7 +175,6 @@ CDxfRead::CDxfRead(const char* filepath)
 
 CDxfRead::~CDxfRead()
 {
-	delete m_ifs;
 }
 
 double CDxfRead::mm( const double & value ) const

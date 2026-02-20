@@ -7,6 +7,7 @@
 #include "Arc.h"
 #include "Area.h"
 #include "kurve/geometry.h"
+#include <memory>
 
 const Point operator*(const double &d, const Point &p){ return p * d;}
 
@@ -794,14 +795,14 @@ bool CCurve::Offset(double leftwards_value, const Units &u)
 			a.Offset(inwards_offset);
 			if(a.m_curves.size() == 1)
 			{
-				Span* start_span = nullptr;
+				std::unique_ptr<Span> start_span;
 				if(this->m_vertices.size() > 1)
 				{
 					std::list<CVertex>::iterator It = m_vertices.begin();
 					CVertex &v0 = *It;
 					It++;
 					CVertex &v1 = *It;
-					start_span = new Span(v0.m_p, v1, true);
+					start_span = std::make_unique<Span>(v0.m_p, v1, true);
 				}
 				*this = a.m_curves.front();
 				if(this->IsClockwise() != cw)this->Reverse();
@@ -811,7 +812,6 @@ bool CCurve::Offset(double leftwards_value, const Units &u)
 					Point left(-forward.y, forward.x);
 					Point offset_start = start_span->m_p + left * leftwards_value;
 					this->ChangeStart(this->NearestPoint(offset_start, u));
-					delete start_span;
 				}
 				success = true;
 			}
