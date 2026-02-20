@@ -10,53 +10,11 @@
 using namespace geoff_geometry;
 
 namespace geoff_geometry {
-	int   UNITS = MM;
-	double TOLERANCE = 1.0e-06;
-	double TOLERANCE_SQ = TOLERANCE * TOLERANCE;
-	double TIGHT_TOLERANCE = 1.0e-09;
-	double UNIT_VECTOR_TOLERANCE = 1.0e-10;
-	double RESOLUTION = 1.0e-06;
 
 	// dummy functions
 	const wchar_t* getMessage(const wchar_t* original){return original;}
 	void FAILURE(const wchar_t* str){throw(str);}
 	void FAILURE(const std::wstring& str){throw(str);}
-
-	void set_Tolerances(int mode) {
-		UNIT_VECTOR_TOLERANCE = 1.0e-10;
-		switch (UNITS = mode)
-		{
-		case MM:
-			geoff_geometry::TOLERANCE = 1.0e-03;					// Peps
-			RESOLUTION = 1.0e-03;
-			TIGHT_TOLERANCE = 1.0e-06;
-			break;
-		case INCHES:
-			TOLERANCE = 1.0e-04;					// Peps
-			RESOLUTION = 1.0e-04;
-			TIGHT_TOLERANCE = 1.0e-7;
-			break;
-		case METRES:
-			TOLERANCE = 1.0e-06;					// p4c...SW
-			RESOLUTION = 1.0e-06;
-			TIGHT_TOLERANCE = 1.0e-09;
-			break;
-		default:
-			FAILURE(L"INVALID UNITS");
-		}
-		TOLERANCE_SQ = TOLERANCE * TOLERANCE;
-	}
-
-	double mm(double value) {
-		switch(UNITS) {
-			default:
-				return value;
-			case METRES:
-				return value * .001;
-			case INCHES:
-				return value / 25.4;
-		}
-	}
 
 	// ostream operators  = non-member overload
 	// *********************************************************************************************************
@@ -746,7 +704,7 @@ namespace geoff_geometry {
 		// solves quadratic equation ax² + bx + c = 0
 		// returns number of real roots
 //		double epsilon = 1.0e-6;
-		double epsilon = (geoff_geometry::UNITS == METRES)?1.0e-09 : 1.0e-06;
+		double epsilon = 1.0e-06;
 		double epsilonsq = epsilon * epsilon;
 		if(fabs(a) < epsilon) {
 			if(fabs(b) < epsilon) return 0;		// invalid

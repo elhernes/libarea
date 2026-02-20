@@ -506,7 +506,7 @@ namespace geoff_geometry {
 	}
 #endif
 
-	Matrix UnitMatrix;					// a global unit matrix
+	const Matrix UnitMatrix;
 
 
 	// vector

@@ -56,24 +56,11 @@ namespace geoff_geometry {
 	class Line;
 
 
-	enum UNITS_TYPE{
-		MM = 0,
-		METRES,
-		INCHES
-	};
-
-	extern int	  UNITS;					// may be enum UNITS_TYPE (MM METRES or INCHES)
-	extern double TOLERANCE;				// CAD Geometry resolution (inexact, eg. from import)
-	extern double TOLERANCE_SQ;				// tolerance squared for faster coding.
-	extern double TIGHT_TOLERANCE;
-	extern double UNIT_VECTOR_TOLERANCE;
-	extern double SMALL_ANGLE;				// small angle tangency test eg isConvex
-	extern double SIN_SMALL_ANGLE;
-	extern double COS_SMALL_ANGLE;
-	extern double RESOLUTION;				// CNC resolution
-
-	void set_Tolerances(int mode);
-	double mm(double value);				// convert to current units from mm
+	inline constexpr double TOLERANCE = 1.0e-06;
+	inline constexpr double TOLERANCE_SQ = TOLERANCE * TOLERANCE;
+	inline constexpr double TIGHT_TOLERANCE = 1.0e-09;
+	inline constexpr double UNIT_VECTOR_TOLERANCE = 1.0e-10;
+	inline constexpr double RESOLUTION = 1.0e-06;
 
 inline bool FEQ(double a, double b, double tolerance = TOLERANCE) {return fabs(a - b) <= tolerance;}
 inline bool FNE(double a, double b, double tolerance = TOLERANCE) {return fabs(a - b) > tolerance;}
@@ -197,7 +184,7 @@ inline bool FNEZ(double a, double tolerance = TIGHT_TOLERANCE) {return fabs(a) >
 		Matrix	Inverse();											// inverts this matrix
 	};
 
-	extern Matrix UnitMatrix;		// a Unit Matrix
+	extern const Matrix UnitMatrix;
 
 
 	// 2d Point class

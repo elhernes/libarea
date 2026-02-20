@@ -4,7 +4,12 @@
 
 #include "dxf.h"
 
-using namespace std;
+using std::endl;
+using std::ifstream;
+using std::ios;
+using std::istringstream;
+using std::ofstream;
+using std::string;
 static const double Pi = 3.14159265358979323846264338327950288419716939937511;
 
 CDxfWrite::CDxfWrite(const char* filepath)
