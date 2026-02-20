@@ -65,7 +65,7 @@ public:
 };
 
 
-bool CCurve::CheckForArc(const CVertex& prev_vt, std::list<const CVertex*>& might_be_an_arc, CArcOrLine &arc_or_line_returned, const Units &u)
+bool CCurve::CheckForArc(const CVertex& prev_vt, std::list<const CVertex*>& might_be_an_arc, CArcOrLine &arc_or_line_returned, double accuracy)
 {
 	// this examines the vertices in might_be_an_arc
 	// if they do fit an arc, set arc to be the arc that they fit and return true
@@ -96,9 +96,9 @@ bool CCurve::CheckForArc(const CVertex& prev_vt, std::list<const CVertex*>& migh
 	const CVertex* current_vt = &prev_vt;
 	for(auto *vt : might_be_an_arc)
 	{
-		if(!c.PointIsOn(vt->m_p, u.m_accuracy * 0.1))
+		if(!c.PointIsOn(vt->m_p, accuracy * 0.1))
 			return false;
-		if(!c.LineIsOn(current_vt->m_p, vt->m_p, u.m_accuracy * 2.0))
+		if(!c.LineIsOn(current_vt->m_p, vt->m_p, accuracy * 2.0))
 			return false;
 		current_vt = vt;
 	}
@@ -175,9 +175,9 @@ bool CheckAddedRadii(const std::list<CVertex> &new_vertices)
 }
 
 
-void CCurve::AddArcOrLines(bool check_for_arc, std::list<CVertex> &new_vertices, std::list<const CVertex*>& might_be_an_arc, CArcOrLine &arc_or_line, bool &arc_found, bool &arc_added, const Units &u)
+void CCurve::AddArcOrLines(bool check_for_arc, std::list<CVertex> &new_vertices, std::list<const CVertex*>& might_be_an_arc, CArcOrLine &arc_or_line, bool &arc_found, bool &arc_added, double accuracy)
 {
-    if (check_for_arc && CheckForArc(new_vertices.back(), might_be_an_arc, arc_or_line, u))
+    if (check_for_arc && CheckForArc(new_vertices.back(), might_be_an_arc, arc_or_line, accuracy))
 	{
 		arc_found = true;
 	}
@@ -185,7 +185,7 @@ void CCurve::AddArcOrLines(bool check_for_arc, std::list<CVertex> &new_vertices,
 	{
 		if (arc_found)
 		{
-			if (arc_or_line.m_is_a_line || arc_or_line.m_arc.AlmostALine(u.m_accuracy))
+			if (arc_or_line.m_is_a_line || arc_or_line.m_arc.AlmostALine(accuracy))
 			{
 
 				new_vertices.push_back(CVertex(arc_or_line.m_arc.m_e, arc_or_line.m_arc.m_user_data));
@@ -226,7 +226,7 @@ void CCurve::AddArcOrLines(bool check_for_arc, std::list<CVertex> &new_vertices,
 }
 
 
-void CCurve::FitArcs(const Units &u)
+void CCurve::FitArcs(double accuracy)
 {
 	std::list<CVertex> new_vertices;
 
@@ -243,7 +243,7 @@ void CCurve::FitArcs(const Units &u)
 		{
 			if (i != 0)
 			{
-                            AddArcOrLines(false, new_vertices, might_be_an_arc, arc_or_line, arc_found, arc_added, u);
+                            AddArcOrLines(false, new_vertices, might_be_an_arc, arc_or_line, arc_found, arc_added, accuracy);
 			}
 			new_vertices.push_back(vt);
 		}
@@ -258,7 +258,7 @@ void CCurve::FitArcs(const Units &u)
 				}
 				else
 				{
-                                    AddArcOrLines(true, new_vertices, might_be_an_arc, arc_or_line, arc_found, arc_added, u);
+                                    AddArcOrLines(true, new_vertices, might_be_an_arc, arc_or_line, arc_found, arc_added, accuracy);
 				}
 			}
 		}
@@ -266,7 +266,7 @@ void CCurve::FitArcs(const Units &u)
 		i++;
 	}
 
-	if (might_be_an_arc.size() > 0)AddArcOrLines(false, new_vertices, might_be_an_arc, arc_or_line, arc_found, arc_added, u);
+	if (might_be_an_arc.size() > 0)AddArcOrLines(false, new_vertices, might_be_an_arc, arc_or_line, arc_found, arc_added, accuracy);
 
 	if (arc_added)
 	{
@@ -275,7 +275,7 @@ void CCurve::FitArcs(const Units &u)
 		for (auto *v : might_be_an_arc)m_vertices.push_back(*v);
 	}
 }
-void CCurve::UnFitArcs(const Units &u)
+void CCurve::UnFitArcs(double accuracy)
 {
 	std::list<Point> new_pts;
 
@@ -322,7 +322,7 @@ void CCurve::UnFitArcs(const Units &u)
 
 				//what is the delta phi to get an accurancy of aber
 				double radius = sqrt(dx*dx + dy*dy);
-				dphi=2*acos((radius-u.m_accuracy)/radius);
+				dphi=2*acos((radius-accuracy)/radius);
 
 				//set the number of segments
 				if (phit > 0)
@@ -368,7 +368,7 @@ void CCurve::UnFitArcs(const Units &u)
 	}
 }
 
-Point CCurve::NearestPoint(const Point& p, const Units &u)const
+Point CCurve::NearestPoint(const Point& p, double accuracy)const
 {
 	double best_dist = 0.0;
 	Point best_point = Point(0, 0);
@@ -396,7 +396,7 @@ Point CCurve::NearestPoint(const Point& p, const Units &u)const
 	return best_point;
 }
 
-Point CCurve::NearestPoint(const CCurve& c, const Units &u, double *d)const
+Point CCurve::NearestPoint(const CCurve& c, double accuracy, double *d)const
 {
 	double best_dist = 0.0;
 	Point best_point = Point(0, 0);
@@ -409,7 +409,7 @@ Point CCurve::NearestPoint(const CCurve& c, const Units &u, double *d)const
 		if(prev_p_valid)
 		{
 			double dist;
-			Point near_point = NearestPoint(Span(prev_p, vertex, first_span), u, &dist);
+			Point near_point = NearestPoint(Span(prev_p, vertex, first_span), accuracy, &dist);
 			first_span = false;
 			if(!best_point_valid || dist < best_dist)
 			{
@@ -698,7 +698,7 @@ void CCurve::ChangeEnd(const Point &p) {
 	*this = new_curve;
 }
 
-Point CCurve::NearestPoint(const Span& p, const Units &u, double *d)const
+Point CCurve::NearestPoint(const Span& p, double accuracy, double *d)const
 {
 	double best_dist = 0.0;
 	Point best_point = Point(0, 0);
@@ -711,7 +711,7 @@ Point CCurve::NearestPoint(const Span& p, const Units &u, double *d)const
 		if(prev_p_valid)
 		{
 			double dist;
-			Point near_point = Span(prev_p, vertex, first_span).NearestPoint(p, u, &dist);
+			Point near_point = Span(prev_p, vertex, first_span).NearestPoint(p, accuracy, &dist);
 			first_span = false;
 			if(!best_point_valid || dist < best_dist)
 			{
@@ -757,7 +757,7 @@ static geoff_geometry::Span MakeSpan(const Span& span)
 	return geoff_geometry::Span(span.m_v.m_type, geoff_geometry::Point(span.m_p.x, span.m_p.y), geoff_geometry::Point(span.m_v.m_p.x, span.m_v.m_p.y), geoff_geometry::Point(span.m_v.m_c.x, span.m_v.m_c.y));
 }
 
-bool CCurve::Offset(double leftwards_value, const Units &u)
+bool CCurve::Offset(double leftwards_value, double accuracy)
 {
 	// use the kurve code donated by Geoff Hawkesford, to offset the curve as an open curve
 	// returns true for success, false for failure
@@ -790,7 +790,7 @@ bool CCurve::Offset(double leftwards_value, const Units &u)
 				inwards_offset = -inwards_offset;
 				cw = true;
 			}
-			CArea a(u);
+			CArea a(accuracy);
 			a.append(*this);
 			a.Offset(inwards_offset);
 			if(a.m_curves.size() == 1)
@@ -811,7 +811,7 @@ bool CCurve::Offset(double leftwards_value, const Units &u)
 					Point forward = start_span->GetVector(0.0);
 					Point left(-forward.y, forward.x);
 					Point offset_start = start_span->m_p + left * leftwards_value;
-					this->ChangeStart(this->NearestPoint(offset_start, u));
+					this->ChangeStart(this->NearestPoint(offset_start, accuracy));
 				}
 				success = true;
 			}
@@ -834,12 +834,12 @@ void CCurve::GetSpans(std::list<Span> &spans)const
 	}
 }
 
-void CCurve::OffsetForward(double forwards_value, const Units &u, bool refit_arcs)
+void CCurve::OffsetForward(double forwards_value, double accuracy, bool refit_arcs)
 {
 	// for drag-knife compensation
 
 	// replace arcs with lines
-	UnFitArcs(u);
+	UnFitArcs(accuracy);
 
 	std::list<Span> spans;
 	GetSpans(spans);
@@ -889,9 +889,9 @@ void CCurve::OffsetForward(double forwards_value, const Units &u, bool refit_arc
 	}
 
 	if(refit_arcs)
-		FitArcs(u); // find the arcs again
+		FitArcs(accuracy); // find the arcs again
 	else
-		UnFitArcs(u); // convert those little arcs added to lines
+		UnFitArcs(accuracy); // convert those little arcs added to lines
 }
 
 double CCurve::Perim()const
@@ -936,7 +936,7 @@ Point CCurve::PerimToPoint(double perim)const
 	return m_vertices.back().m_p;
 }
 
-double CCurve::PointToPerim(const Point& p, const Units &u)const
+double CCurve::PointToPerim(const Point& p, double accuracy)const
 {
 	double best_dist = 0.0;
 	double perim_at_best_dist = 0.0;
@@ -988,9 +988,9 @@ void CCurve::operator+=(const CCurve& curve)
 	}
 }
 
-void CCurve::CurveIntersections(const CCurve& c, std::list<Point> &pts, const Units &u)const
+void CCurve::CurveIntersections(const CCurve& c, std::list<Point> &pts, double accuracy)const
 {
-    CArea a(u);
+    CArea a(accuracy);
 	a.append(*this);
 	a.CurveIntersections(c, pts);
 }
@@ -1092,15 +1092,15 @@ Point Span::MidParam(double param)const {
 	return p;
 }
 
-Point Span::NearestPointToSpan(const Span& p, double &d, const Units &u)const
+Point Span::NearestPointToSpan(const Span& p, double &d, double accuracy)const
 {
 	Point midpoint = MidParam(0.5);
 	Point np = p.NearestPoint(m_p);
 	Point best_point = m_p;
 	double dist = np.dist(m_p);
-	if(p.m_start_span)dist -= (u.m_accuracy * 2); // give start of curve most priority
+	if(p.m_start_span)dist -= (accuracy * 2); // give start of curve most priority
 	Point npm = p.NearestPoint(midpoint);
-	double dm = npm.dist(midpoint) - u.m_accuracy; // lie about midpoint distance to give midpoints priority
+	double dm = npm.dist(midpoint) - accuracy; // lie about midpoint distance to give midpoints priority
 	if(dm < dist){dist = dm; best_point = midpoint;}
 	Point np2 = p.NearestPoint(m_v.m_p);
 	double dp2 = np2.dist(m_v.m_p);
@@ -1109,14 +1109,14 @@ Point Span::NearestPointToSpan(const Span& p, double &d, const Units &u)const
 	return best_point;
 }
 
-Point Span::NearestPoint(const Span& p, const Units &u, double *d)const
+Point Span::NearestPoint(const Span& p, double accuracy, double *d)const
 {
 	double best_dist;
-	Point best_point = this->NearestPointToSpan(p, best_dist, u);
+	Point best_point = this->NearestPointToSpan(p, best_dist, accuracy);
 
 	// try the other way round too
 	double best_dist2;
-	Point best_point2 = p.NearestPointToSpan(*this, best_dist2, u);
+	Point best_point2 = p.NearestPointToSpan(*this, best_dist2, accuracy);
 	if(best_dist2 < best_dist)
 	{
             best_point = NearestPoint(best_point2);

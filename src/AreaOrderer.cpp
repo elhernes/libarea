@@ -10,13 +10,13 @@ CInnerCurves::CInnerCurves(CInnerCurves* pOuter, const CCurve* curve)
 {
 }
 
-const Units &
-CInnerCurves::GetUnits()
+double
+CInnerCurves::GetAccuracy()
 {
-    return m_unite_area->m_units;
+    return m_unite_area->m_accuracy;
 }
 
-void CInnerCurves::Insert(const CCurve* pcurve, const Units &u)
+void CInnerCurves::Insert(const CCurve* pcurve, double accuracy)
 {
 	std::vector<CInnerCurves*> outside_of_these;
 	std::vector<CInnerCurves*> crossing_these;
@@ -32,7 +32,7 @@ void CInnerCurves::Insert(const CCurve* pcurve, const Units &u)
 
 		case OverlapType::Inside:
 			// insert in this inner curve
-                    c->Insert(pcurve, u);
+                    c->Insert(pcurve, accuracy);
 			return;
 
 		case OverlapType::Siblings:
@@ -67,7 +67,7 @@ void CInnerCurves::Insert(const CCurve* pcurve, const Units &u)
 	for(auto *c : crossing_these)
 	{
 		// unite these, then remove
-		new_item->Unite(c, u);
+		new_item->Unite(c, accuracy);
 		for(auto it = m_inner_curves.begin(); it != m_inner_curves.end(); ++it)
 		{
 			if(it->get() == c)
@@ -104,13 +104,13 @@ void CInnerCurves::GetArea(CArea &area, bool outside, bool use_curve)const
 	}
 }
 
-void CInnerCurves::Unite(const CInnerCurves* c, const Units &u)
+void CInnerCurves::Unite(const CInnerCurves* c, double accuracy)
 {
 	// unite all the curves in c, with this one
-	m_unite_area = std::make_unique<CArea>(u);
+	m_unite_area = std::make_unique<CArea>(accuracy);
 	m_unite_area->m_curves.push_back(*m_curve);
 
-	CArea a2(u);
+	CArea a2(accuracy);
 	c->GetArea(a2);
 
 	m_unite_area->Union(a2);
@@ -126,7 +126,7 @@ void CInnerCurves::Unite(const CInnerCurves* c, const Units &u)
 		else
 		{
 			if(curve.IsClockwise())curve.Reverse();
-			Insert(&curve, u);
+			Insert(&curve, accuracy);
 		}
 	}
 }
@@ -136,17 +136,17 @@ CAreaOrderer::CAreaOrderer()
 	m_top_level = std::make_unique<CInnerCurves>(nullptr, nullptr);
 }
 
-void CAreaOrderer::Insert(CCurve* pcurve, const Units &u)
+void CAreaOrderer::Insert(CCurve* pcurve, double accuracy)
 {
 	// make them all anti-clockwise as they come in
 	if(pcurve->IsClockwise())pcurve->Reverse();
 
-	m_top_level->Insert(pcurve, u);
+	m_top_level->Insert(pcurve, accuracy);
 }
 
-CArea CAreaOrderer::ResultArea(const Units &u)const
+CArea CAreaOrderer::ResultArea(double accuracy)const
 {
-    CArea a(u);
+    CArea a(accuracy);
 
     if(m_top_level) {
         m_top_level->GetArea(a);

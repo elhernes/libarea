@@ -41,21 +41,21 @@ makeCircle(CCurve &curve, const Point &center, double radius) {
 
 static void
 circle_pocket(std::list<CCurve> &toolPath, double tool_diameter, PocketMode pm, double zz_angle,
-              double cx, double cy, double rOuter, double rInner, double xyPct, const Units &u) {
+              double cx, double cy, double rOuter, double rInner, double xyPct, double accuracy) {
   fprintf(stderr, "%s: (td %f) (pm %d) (zz %f) (cx %f) (cy %f) (ro %f) (ri %f) (xy %f)\n",
           __func__,
           tool_diameter, pm, zz_angle, cx, cy, rOuter, rInner, xyPct);
 
   CCurve outerCircle, innerCircle;
-  CArea innerArea(u), outerArea(u);
+  CArea innerArea(accuracy), outerArea(accuracy);
 
   makeCircle(outerCircle, Point(cx, cy), rOuter);
   outerArea.append(outerCircle);
-  outerCircle.FitArcs(u);
+  outerCircle.FitArcs(accuracy);
 
   makeCircle(innerCircle, Point(cx, cy), rInner);
   innerArea.append(innerCircle);
-  innerCircle.FitArcs(u);
+  innerCircle.FitArcs(accuracy);
 
   outerArea.Xor(innerArea);  
 
@@ -81,10 +81,10 @@ makeRect(CCurve &curve, const Point &p0, double xl, double yl) {
 
 static void
 rect_pocket(std::list<CCurve> &toolPath, double tool_diameter, PocketMode pm, double zz_angle,
-            double x0, double y0, double xlen, double ylen, double xyPct, const Units &u) {
+            double x0, double y0, double xlen, double ylen, double xyPct, double accuracy) {
   CCurve rect_c;
   makeRect(rect_c, Point(x0, y0), xlen, ylen);
-  CArea rect_a(u);
+  CArea rect_a(accuracy);
   rect_a.append(rect_c);
 
   CAreaPocketParams params(tool_diameter / 2,
@@ -327,13 +327,12 @@ napi_circle_pocket(const Napi::CallbackInfo& info) {
 
     Napi::Array ar = info[1].As<Napi::Object>().Get("position").As<Napi::Array>();
     int n = ar.Length();
-    Units units(accuracy);
     for(unsigned i=0; i<n; i++) {
       Napi::Object ob = ar.Get(i).As<Napi::Object>();
       circle_pocket(toolPath, tool_diameter, pm, zz_angle,
                     ob.Get("xc").ToNumber().DoubleValue(), ob.Get("yc").ToNumber().DoubleValue(),
                     ob.Get("rOuter").ToNumber().DoubleValue(), ob.Get("rInner").ToNumber().DoubleValue(),
-                    xyPct, units);
+                    xyPct, accuracy);
     }
     mk_return_toolpath(rv, toolPath);
   }
@@ -448,16 +447,14 @@ napi_polygon_pocket(const Napi::CallbackInfo& info) {
       double xyPct = info[1].As<Napi::Object>().Get("xyPct").ToNumber().DoubleValue()/100.;
 
       Napi::Array outer = info[1].As<Napi::Object>().Get("outerPath").As<Napi::Array>();
-      Units units(accuracy);
-
       CCurve outer_c;
       mk_curve_from_array(outer_c, outer);
-      CArea outer_a(units);
+      CArea outer_a(accuracy);
       outer_a.append(outer_c);
 
       Napi::Array inner = info[1].As<Napi::Object>().Get("innerPath").As<Napi::Array>();
 
-      CArea inner_a(units);
+      CArea inner_a(accuracy);
       for(unsigned i=0; i<inner.Length(); i++) {
 	CCurve i1;
 	mk_curve_from_array(i1, inner.Get(i).As<Napi::Array>());

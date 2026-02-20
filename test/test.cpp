@@ -101,17 +101,17 @@ cut_path(Writer &out, std::list<CCurve> &toolpath, double depth, double zStart, 
 
 void
 circular_pocket(std::list<CCurve> &toolPath, double tool_diameter, double cx,
-                double cy, double rOuter, double rInner, double xyPct, const Units &u) {
+                double cy, double rOuter, double rInner, double xyPct, double accuracy) {
   CCurve outerCircle, innerCircle;
-  CArea innerArea(u), outerArea(u);
+  CArea innerArea(accuracy), outerArea(accuracy);
 
   makeCircle(outerCircle, Point(cx, cy), rOuter);
   outerArea.append(outerCircle);
-  outerCircle.FitArcs(u);
+  outerCircle.FitArcs(accuracy);
 
   makeCircle(innerCircle, Point(cx, cy), rInner);
   innerArea.append(innerCircle);
-  innerCircle.FitArcs(u);
+  innerCircle.FitArcs(accuracy);
 
   outerArea.Xor(innerArea);
 
@@ -131,10 +131,10 @@ circular_pocket(std::list<CCurve> &toolPath, double tool_diameter, double cx,
 
 void
 rect_pocket(std::list<CCurve> &toolPath, double tool_diameter, double x0,
-            double y0, double xlen, double ylen, double xyPct, const Units &u) {
+            double y0, double xlen, double ylen, double xyPct, double accuracy) {
   CCurve rect_c;
   makeRect(rect_c, Point(x0, y0), xlen, ylen);
-  CArea rect_a(u);
+  CArea rect_a(accuracy);
   rect_a.append(rect_c);
 
   PocketMode pm = PocketMode::Spiral;
@@ -156,7 +156,7 @@ triangle_pocket(std::list<CCurve> &toolPath, double tool_diameter,
                 double x0, double y0,
                 double x1, double y1,
                 double x2, double y2,
-                double xyPct, const Units &u) {
+                double xyPct, double accuracy) {
   
   CCurve tri_c;
   makeTriangle(tri_c, Point(x0, y0), Point(x1,y1), Point(x2,y2));
@@ -167,7 +167,7 @@ triangle_pocket(std::list<CCurve> &toolPath, double tool_diameter,
       i++;
   }
 
-  CArea tri_a(u);
+  CArea tri_a(accuracy);
   tri_a.append(tri_c);
 
 //  PocketMode pm = PocketMode::Spiral;
@@ -190,9 +190,9 @@ triangle_pocket(std::list<CCurve> &toolPath, double tool_diameter,
 static void
 polygon_pocket(std::list<CCurve> &toolPath,
                double tool_diameter, PocketMode pm, double zz_angle, double xyPct,
-               const CCurve &poly_c, const Units &u) {
+               const CCurve &poly_c, double accuracy) {
 
-  CArea poly_a(u);
+  CArea poly_a(accuracy);
   poly_a.append(poly_c);
   dump_clist("poly_a", poly_a.m_curves);
 
@@ -217,7 +217,7 @@ main(int ac, char **av) {
   p.Transform(m);
   printf("p(x=%f, y=%f)\n", p.x, p.y);
 
-  Units u(0.001);
+  double accuracy = 0.001;
   std::list<CCurve> toolPath;
 
   GCodeWriter gcode("pocket.nc", 0);
@@ -226,7 +226,7 @@ main(int ac, char **av) {
                     1.5, 1.5, /* cx,cy */
                     1.5, /* outer radius */
                     0.75, /* inner radius */
-                    0.45, u); /* xy overlap */
+                    0.45, accuracy); /* xy overlap */
 
     cut_path(gcode, toolPath, 0.125, 0., 0.030, 0.125);
   }
@@ -236,7 +236,7 @@ main(int ac, char **av) {
     rect_pocket(toolPath, 0.125, /*tool diameter*/
                 3.5, 1.5, // bottom left x, y
                 1.50, 3.50, // width, height
-                0.45, u);  // xy overlap,  units
+                0.45, accuracy);  // xy overlap,  units
 
     cut_path(gcode, toolPath, 0.250, 0., 0.055, 0.125);
   }
@@ -247,7 +247,7 @@ main(int ac, char **av) {
                     2.693, -0.663, // p2
                     1.854, 0.175, // p1
                     1.016, -0.663, // p0
-                    0.45, u);  // xy overlap,  units
+                    0.45, accuracy);  // xy overlap,  units
 
     fprintf(stderr, "curves: %lu\n", toolPath.size());
     for (const auto &c : toolPath) {
@@ -346,7 +346,7 @@ main(int ac, char **av) {
                    0., // zz_angle
                    0.45, // xy-pct
                    poly_c,
-                   Units(0.001));
+                   0.001);
 
     fprintf(stderr, "curves: %lu\n", toolPath.size());
 

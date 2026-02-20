@@ -22,10 +22,10 @@ class CInnerCurves
 public:
     CInnerCurves(CInnerCurves* pOuter, const CCurve* curve);
 
-    void Insert(const CCurve* pcurve, const class Units &u);
+    void Insert(const CCurve* pcurve, double accuracy);
     void GetArea(CArea &area, bool outside = true, bool use_curve = true)const;
-    void Unite(const CInnerCurves* c, const class Units &u);
-    const class Units &GetUnits();
+    void Unite(const CInnerCurves* c, double accuracy);
+    double GetAccuracy();
 };
 
 class CAreaOrderer
@@ -35,6 +35,6 @@ public:
 
     CAreaOrderer();
 
-    void Insert(CCurve* pcurve, const class Units &u);
-    CArea ResultArea(const Units &u)const;
+    void Insert(CCurve* pcurve, double accuracy);
+    CArea ResultArea(double accuracy)const;
 };

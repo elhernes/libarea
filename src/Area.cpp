@@ -10,11 +10,11 @@
 
 //static const double PI = 3.1415926535897932;
 
-CArea::CArea(const Units &u) : m_units(u) {
+CArea::CArea(double accuracy) : m_accuracy(accuracy) {
 
 }
 
-CArea::CArea(const CArea &rhs) : m_curves(rhs.m_curves), m_units(rhs.m_units) {
+CArea::CArea(const CArea &rhs) : m_curves(rhs.m_curves), m_accuracy(rhs.m_accuracy) {
 }
 
 void CArea::append(const CCurve& curve)
@@ -25,7 +25,7 @@ void CArea::append(const CCurve& curve)
 void CArea::FitArcs(){
 	for(auto &curve : m_curves)
 	{
-		curve.FitArcs(m_units);
+		curve.FitArcs(m_accuracy);
 	}
 }
 
@@ -36,7 +36,7 @@ Point CArea::NearestPoint(const Point& p)const
 	bool first = true;
 	for(const auto &curve : m_curves)
 	{
-		Point near_point = curve.NearestPoint(p, m_units);
+		Point near_point = curve.NearestPoint(p, m_accuracy);
 		double dist = near_point.dist(p);
 		if(first || dist < best_dist)
 		{
@@ -69,14 +69,14 @@ void CArea::Reorder(CAreaProcessingContext *ctx)
 	CAreaOrderer ao;
 	for(auto &curve : m_curves)
 	{
-		ao.Insert(&curve, m_units);
+		ao.Insert(&curve, m_accuracy);
 		if(ctx && ctx->set_processing_length_in_split)
 		{
 			ctx->processing_done += (ctx->split_processing_length / m_curves.size());
 		}
 	}
 
-	*this = ao.ResultArea(m_units);
+	*this = ao.ResultArea(m_accuracy);
 }
 
 class ZigZag
@@ -408,7 +408,7 @@ static void zigzag(const CArea &input_a, ZigZagState &zz, CAreaProcessingContext
 		return;
 	}
 
-    zz.accuracy = input_a.m_units.m_accuracy;
+    zz.accuracy = input_a.m_accuracy;
 
 	CArea a(input_a);
     rotate_area(a, zz);
@@ -443,7 +443,7 @@ static void zigzag(const CArea &input_a, ZigZagState &zz, CAreaProcessingContext
 		c.m_vertices.push_back(CVertex(CVertex::vt_line, p2, null_point, 1));
 		c.m_vertices.push_back(CVertex(CVertex::vt_line, p3, null_point, 0));
 		c.m_vertices.push_back(CVertex(CVertex::vt_line, p0, null_point, 1));
-		CArea a2(input_a.m_units);
+		CArea a2(input_a.m_accuracy);
 		a2.m_curves.push_back(c);
 		a2.Intersect(a);
 		make_zig(a2, y0, y, zz);
@@ -539,7 +539,7 @@ void CArea::Split(std::list<CArea> &areas, CAreaProcessingContext *ctx)const
 	{
 		for(const auto &curve : m_curves)
 		{
-			areas.push_back(CArea(m_units));
+			areas.push_back(CArea(m_accuracy));
 			areas.back().m_curves.push_back(curve);
 		}
 	}
@@ -559,7 +559,7 @@ void CArea::Split(std::list<CArea> &areas, CAreaProcessingContext *ctx)const
 			}
 			else
 			{
-				areas.push_back(CArea(m_units));
+				areas.push_back(CArea(m_accuracy));
 				areas.back().m_curves.push_back(curve);
 			}
 		}
@@ -581,9 +581,9 @@ double CArea::GetArea(bool always_add)const
 
 OverlapType GetOverlapType(const CCurve& c1, const CCurve& c2)
 {
-    CArea a1(Units(0.001));
+    CArea a1(0.001);
 	a1.m_curves.push_back(c1);
-	CArea a2(Units(0.001));
+	CArea a2(0.001);
 	a2.m_curves.push_back(c2);
 
 	return GetOverlapType(a1, a2);
@@ -626,7 +626,7 @@ bool IsInside(const Point& p, const CCurve& c)
 
 bool IsInside(const Point& p, const CArea& a)
 {
-    CArea a2(a.m_units);
+    CArea a2(a.m_accuracy);
 	CCurve c;
 	c.m_vertices.push_back(CVertex(Point(p.x - 0.01, p.y - 0.01)));
 	c.m_vertices.push_back(CVertex(Point(p.x + 0.01, p.y - 0.01)));
@@ -697,7 +697,7 @@ public:
 	CArea m_area;
 	CCurve m_curve;
 
-    ThickLine(const CCurve& curve, const Units &u) : m_curve(curve), m_area(u)
+    ThickLine(const CCurve& curve, double accuracy) : m_curve(curve), m_area(accuracy)
 	{
 		m_area.append(curve);
 		m_area.Thicken(0.001);

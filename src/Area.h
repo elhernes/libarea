@@ -31,12 +31,6 @@ struct CAreaPocketParams
 	}
 };
 
-class Units {
-public:
-    Units(double a) : m_accuracy(a) {}
-    double m_accuracy;
-};
-
 struct CAreaProcessingContext {
 	bool fit_arcs = true;
 	bool please_abort = false;
@@ -51,16 +45,16 @@ struct CAreaProcessingContext {
 class CArea
 {
 public:
-    CArea(const Units &u);
+    CArea(double accuracy);
     CArea(const CArea &rhs);
     std::list<CCurve> m_curves;
-    Units m_units;
+    double m_accuracy;
 
 	void append(const CCurve& curve);
 	void Subtract(const CArea& a2);
 	void Intersect(const CArea& a2);
 	void Union(const CArea& a2);
-	static CArea UniteCurves(std::list<CCurve> &curves, const Units &u);
+	static CArea UniteCurves(std::list<CCurve> &curves, double accuracy);
 	void Xor(const CArea& a2);
 	void Offset(double inwards_value);
 	void Thicken(double value);
