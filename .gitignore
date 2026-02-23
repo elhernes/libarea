@@ -6,4 +6,6 @@ obj.*/**
 **/xcuserdata
 **/xcshareddata
 *.nc
+.build/
+test/build/
 

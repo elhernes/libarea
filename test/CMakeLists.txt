@@ -14,3 +14,9 @@ add_executable(area-test
 )
 
 target_link_libraries(area-test area)
+
+add_executable(visual-ref
+  visual_ref.cpp
+)
+
+target_link_libraries(visual-ref area)
